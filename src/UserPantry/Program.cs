@@ -10,6 +10,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<IExpiringPantryItemsQuery, PantryItemsRepository>();
 
 builder.Services
     .AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
