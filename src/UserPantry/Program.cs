@@ -1,16 +1,22 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using UserPantry.Api;
 using UserPantry.Api.Auth;
+using UserPantry.Api.Middleware;
 using UserPantry.Application.Abstractions;
+using UserPantry.Application.Queries;
 using UserPantry.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi("v1");
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<GetExpiringPantryItems>();
 builder.Services.AddScoped<IExpiringPantryItemsQuery, PantryItemsRepository>();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
 builder.Services
     .AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
@@ -34,12 +40,15 @@ builder.Services.AddDbContext<PantryDbContext>(options =>
 
 var app = builder.Build();
 
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapOpenApi("/openapi/{documentName}.json");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .AllowAnonymous();
+app.MapPantryItems();
 
 app.Run();
 
