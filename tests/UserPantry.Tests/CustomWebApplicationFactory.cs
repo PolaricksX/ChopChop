@@ -1,6 +1,6 @@
+﻿using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using System.Net.Sockets;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -9,8 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Xunit;
 using UserPantry.Infrastructure;
+using Xunit;
 
 namespace UserPantry.Tests;
 

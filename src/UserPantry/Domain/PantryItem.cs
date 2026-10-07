@@ -1,4 +1,4 @@
-namespace UserPantry.Domain;
+﻿namespace UserPantry.Domain;
 
 public sealed class PantryItem
 {

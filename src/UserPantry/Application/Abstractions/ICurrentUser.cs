@@ -1,4 +1,4 @@
-namespace UserPantry.Application.Abstractions;
+﻿namespace UserPantry.Application.Abstractions;
 
 public interface ICurrentUser
 {

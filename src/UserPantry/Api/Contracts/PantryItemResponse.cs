@@ -1,4 +1,4 @@
-namespace UserPantry.Api.Contracts;
+﻿namespace UserPantry.Api.Contracts;
 
 /// <summary>Represents a pantry item returned by the User Pantry API.</summary>
 public sealed record PantryItemResponse(

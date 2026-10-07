@@ -1,4 +1,4 @@
-using UserPantry.Application.Models;
+﻿using UserPantry.Application.Models;
 using UserPantry.Domain;
 
 namespace UserPantry.Application.Abstractions;

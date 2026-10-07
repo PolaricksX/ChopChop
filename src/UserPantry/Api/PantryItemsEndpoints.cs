@@ -1,4 +1,4 @@
-using UserPantry.Api.Contracts;
+﻿using UserPantry.Api.Contracts;
 using UserPantry.Application.Models;
 using UserPantry.Application.Queries;
 

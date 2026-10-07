@@ -1,4 +1,4 @@
-namespace UserPantry.Application.Models;
+﻿namespace UserPantry.Application.Models;
 
 public sealed record PagedResult<T>(
     IReadOnlyList<T> Items,

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using UserPantry.Application.Abstractions;
 
 namespace UserPantry.Api.Auth;

@@ -1,4 +1,4 @@
-namespace UserPantry.Api.Middleware;
+﻿namespace UserPantry.Api.Middleware;
 
 public sealed class CorrelationIdMiddleware(RequestDelegate next)
 {
