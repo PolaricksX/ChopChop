@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "UserPantry": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:54986;http://localhost:54987"
+    }
+  }
+}
