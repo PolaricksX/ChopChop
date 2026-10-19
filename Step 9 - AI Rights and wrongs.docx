@@ -1,0 +1,57 @@
+Step 9
+
+Step 1:
+AI was not involved in this step; it was set up manually.
+
+Step 2:
+For the initial setup, we needed to get a new extension called GitLens to allow Copilot 
+to create the issue on GitHub. We also had to get a skill called prompt engineering which 
+was designed with the intention of refining prompts and making them more effective in mind. 
+The first iteration, the original issue, didn’t follow course notes, so we added the entire 
+course notes as context for the following iteration and received a way better response out 
+of it.
+
+Step 3 
+We just asked it to review and make sure code doesn’t conflict or duplicate existing work 
+and after a thorough search it said everything was correct. After another review, the agent 
+confirmed the correction and we moved onwards
+
+Step 4: 
+For this step basically asked copilot to check our files and the issue then to restate it 
+back to me before any code changes were made. After reviewing the changes Copilot were 
+making everything look solid, but we made sure to compare it to the requirements as 
+to not deviate. No remarkable changes were made this step, as we mostly ensured quality 
+of the work. we then moved o to step 5.
+
+Step 5:
+Here, the agent created an adequate implementation plan by following the set instructions 
+without fault. However, the plan it produced was missing extra information necessary for 
+it to confirm web 3 milestone 2’s standard. Also, the tests should be rewritten, since it’s 
+incomplete and requires more depth to be excellent. The biggest issue relates to remark on 
+the next step: it based itself on a file structure that does not follow what we did in class. 
+Otherwise, the plan is overly detailed and meets the requirements.
+
+Step 6:
+The agent cooperated seamlessly according to the implementation plan. However, during this 
+step it was acknowledged that the plan should be updated so that the file structure could 
+closely resemble the file structure we made in class and in our labs. As such, the bot 
+technically did wrong by executing exactly what was asked. When the agent executed the new
+plan, it went as expected.
+
+Step 7:
+The solution was validated with the current tests used as a benchmark for what is acceptable. 
+Then, it added the subsequent update tests as requested without a big hiccup. After a final 
+review, it was confirmed that the AI labored correctly. things vere further tweaked on just 
+to refine its quality before we movedon to the next step.
+
+Step 8:
+For this step, we had Copilot come up with a pr title and description. These were simple and
+straightforward. After adding it as a reviewer, the beginnings were rocky, since the quota 
+limit was reached. Eventually, when it wanted to cooperate, it gave a detailed review, 
+specifying change of importance and level of effort used. For each discrepancy found, a 
+conversation was initiated to allow it to fix the issue by adding it to secrets, for example. 
+These conversations usually exceed one prompt, meaning that the copilot was functioning 
+smoothly.
+
+
+
