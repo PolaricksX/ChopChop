@@ -32,14 +32,21 @@ handling, and logging apply in every milestone.
 ## Technical Baseline
 
 - Target .NET 10 with nullable reference types and implicit usings. Use ASP.NET
-  Core, EF Core (SQL Server unless an ADR says otherwise), and xUnit.
+  Core, EF Core SQL Server, and xUnit. Configure EF Core with `UseSqlServer` and
+  the `Microsoft.EntityFrameworkCore.SqlServer` provider; keep its version
+  centrally managed with the other NuGet packages. SQL Server Management
+  Studio (SSMS) is an optional client for administering SQL Server; the
+  application connects to the SQL Server instance, not to SSMS.
 - Centralize build settings in `Directory.Build.props`, `Directory.Packages.props`,
   and `.editorconfig`. Set `TreatWarningsAsErrors` to true. Suppress a warning
   only with an inline justification.
 - Use async I/O and pass `CancellationToken` through every layer.
-- Use structured logging (message templates), built-in OpenAPI metadata, and
-  RFC 9457 problem details that carry a correlation ID. Enable Swagger UI in
-  development only.
+- Use Serilog for structured application and request logging with message
+  templates; use `ILogger<T>` through the Serilog provider. Configure Serilog
+  through the host and centrally manage the `Serilog.AspNetCore` package
+  version. Enrich request logs with the correlation ID, and enable built-in
+  OpenAPI metadata and RFC 9457 problem details that carry the same ID. Enable
+  Swagger UI in development only.
 - Expose health checks at `/health` anonymously. They check only the service's
   own dependencies (its database) and never other services, so a service stays
   healthy when a neighbor is down.
@@ -49,11 +56,14 @@ handling, and logging apply in every milestone.
   envelopes copy it.
 - Use constructor injection and register services in `Program.cs`. Put
   interfaces at external boundaries (HTTP clients, event bus, AI provider,
-  file storage). Do not inject `IServiceProvider` to resolve dependencies
-  manually. Register `DbContext` as scoped, and use singletons only for
-  thread-safe services.
-- Use one API style per service (Minimal APIs or controllers). Keep endpoints
-  thin. Put validation and business rules in the Application and Domain layers.
+  file storage). Do not inject `IServiceProvider` for general service
+  resolution; the scoped `RepositoryFactory` may use it only to resolve
+  registered repository overrides and custom repositories. Register
+  `DbContext`, repository factory, repository provider, and Unit of Work as
+  scoped services. Use singletons only for thread-safe services.
+- Use one API style per service (Minimal APIs or controllers). Keep controllers
+  and endpoints thin. Put pure invariants in Domain; put use-case orchestration
+  in Api/Services. Application services depend on `IUnitOfWork`, not EF Core.
 - Add a dependency only when the platform or an existing library cannot do the
   job. Review its license and known vulnerabilities first. Set
   `NuGetAuditMode` to `all` so vulnerable direct and transitive packages raise
@@ -61,8 +71,9 @@ handling, and logging apply in every milestone.
 
 ## Commands
 
-Run from the repository root. Start the dependencies first, then run the
-remaining commands before declaring a change complete.
+Run from the repository root. Start the SQL Server dependency first; from
+Milestone 2, Docker Compose also starts the message broker. SSMS may be used to
+inspect or administer the SQL Server instance.
 
 ```bash
 docker compose up -d
@@ -74,7 +85,7 @@ dotnet list package --vulnerable --include-transitive
 ```
 
 Create a migration with
-`dotnet ef migrations add <Name> --project src/<Service> --output-dir Infrastructure/Migrations`.
+`dotnet ef migrations add <Name> --project src/<ServiceName>.Data --output-dir Migrations`.
 
 ## Platform Decisions
 
@@ -83,7 +94,9 @@ before its milestone starts, and propose a change through an ADR instead of
 introducing an alternative.
 
 - **Local run:** Docker Compose runs SQL Server and, from Milestone 2, the
-  message broker. Each service starts with `dotnet run` on its own port.
+  message broker. Each service connects using its configured SQL Server
+  connection string and starts with `dotnet run` on its own port. Use SSMS as
+  an optional management client.
 - **Event transport (from Milestone 2):** RabbitMQ behind `IEventBus`, with an
   in-memory fake for unit tests.
 - **Identity provider (from Milestone 3):** Keycloak locally, configured only
@@ -92,17 +105,51 @@ introducing an alternative.
 
 ## Structure
 
-- `src/` holds independently runnable services, `tests/` holds unit,
-  integration, contract, and end-to-end tests, and `docs/` holds ADRs,
-  contracts, diagrams, the threat model, setup steps, and milestone evidence.
-- Each service is one project at `src/<Service>/` with `Api/`, `Application/`,
-  `Domain/`, and `Infrastructure/` folders. Its tests live in
-  `tests/<Service>.Tests/`.
-- Dependencies point inward: Api to Application to Domain. Infrastructure
-  implements Application interfaces. Domain and Application never reference EF
-  Core or `Microsoft.AspNetCore` types. An architecture test in each service's
-  test project fails the build on a violation (`NetArchTest.Rules` is an
-  acceptable test-only dependency).
+- The repository root is `Solution/` and contains `Solution.sln`, `src/`,
+  `tests/`, and `docs/`. `src/` holds service projects and the client;
+  `tests/` holds service tests; `docs/` holds ADRs, contracts, diagrams, the
+  threat model, setup steps, and milestone evidence.
+- Each service uses this project and folder layout:
+
+  ```text
+  Solution/
+  |-- Solution.sln
+  |-- src/
+  |   |-- ServiceName.Domain/
+  |   |   |-- Entities/
+  |   |   |-- Enums/
+  |   |   |-- Exceptions/
+  |   |   |-- Services/              (pure domain validation and business rules)
+  |   |-- ServiceName.Data/
+  |   |   |-- Context/
+  |   |   |   |-- ServiceDbContext.cs
+  |   |   |-- Configurations/        (EF Core entity type configurations)
+  |   |   |-- Repositories/          (repository implementations)
+  |   |   |-- Migrations/
+  |   |-- ServiceName.Api/
+  |   |   |-- Controllers/           (or Minimal API route endpoints)
+  |   |   |-- Contracts/             (request and response DTOs)
+  |   |   |-- Services/              (application orchestration services)
+  |   |   |-- Program.cs
+  |   |   |-- appsettings.json
+  |   |-- ServiceName.Client/        (React or ASP.NET Core client)
+  |-- tests/
+      |-- ServiceName.UnitTests/
+      |-- ServiceName.IntegrationTests/
+  ```
+
+- Dependencies flow from Api to Data and Domain, and from Data to Domain.
+  Api is the composition root and registers Data implementations. Keep domain
+  rules in Domain; keep EF Core, persistence, and provider adapters in Data.
+  Domain must not reference Data, EF Core, or `Microsoft.AspNetCore` types. An
+  architecture test in the unit test project enforces these boundaries
+  (`NetArchTest.Rules` is an acceptable test-only dependency).
+- Put `IRepository<TAggregate>` and `IUnitOfWork` abstractions in Data, alongside
+  their EF Core implementations. This keeps EF types out of Api/Services while
+  preserving the stated Api-to-Data dependency direction.
+- Each service owns its projects and migrations. The Client project consumes
+  APIs and contains no server-side business rules. A gateway is out of scope
+  unless an ADR adds one.
 - All services use one shared SQL Server database and connection string. Each
   service owns its tables, migrations, and persistence models, and services may
   join owned tables in application queries when a workflow needs data from more
@@ -110,8 +157,8 @@ introducing an alternative.
 - Keep domain ownership explicit even though the database is shared. A shared
   library may hold only stable cross-cutting primitives (event envelope,
   correlation ID, result types), never business rules.
-- Consumers are API clients. No frontend or gateway is in scope unless an ADR
-  adds one.
+- Consumers use service APIs through the Client project or other API clients.
+  A gateway is out of scope unless an ADR adds one.
 
 ## Service Ownership
 
@@ -169,7 +216,7 @@ introducing an alternative.
   bodies. A PUT route may carry a client-generated ID, and the service returns
   404 when that ID belongs to another user.
 - Validate all input at the API boundary. Enforce business invariants in
-  Application and Domain.
+  Api/Services and Domain.
 - Paginate every collection endpoint (default 20, maximum 100). Bound filters,
   allowlist sort fields, use `AsNoTracking()` for reads, and avoid N+1 queries.
 - Prefer additive changes. Add a new version for breaking changes and document
@@ -187,13 +234,145 @@ introducing an alternative.
 - Add a descriptive migration for every model change. Never edit an applied
   migration. Never call `EnsureCreated()`. Review each generated migration and
   script destructive changes before deployment.
+- `DbSet<T>` already provides repository behavior and `DbContext` already
+  provides Unit of Work behavior. Use the abstractions below to hide EF Core
+  from Api/Services and simplify testing, not as redundant wrappers with no
+  boundary benefit.
+- A generic `IRepository<T>` loads and stores one aggregate type. It never
+  calls `SaveChangesAsync`; repositories stage changes only. Keep query APIs
+  specific enough not to expose EF Core types such as `IQueryable` to
+  Api/Services.
+- `IRepositoryFactory` first resolves a registered `IRepository<T>` for the
+  requested type, then falls back to `EfRepository<T>` using the scoped
+  `DbContext`. It also resolves registered custom repository types. This is
+  the only place that uses `IServiceProvider` for repository resolution.
+- `IRepositoryProvider` uses the factory and caches each repository instance
+  by requested type for the lifetime of the Unit of Work. Its cache need not be
+  thread-safe because the provider is scoped to one request. The factory,
+  provider, Unit of Work, repositories, and `DbContext` must all share the same
+  request scope and `DbContext` instance.
+- `IUnitOfWork` delegates generic and custom repository access to the
+  provider, owns the scoped `DbContext`, and exposes one `SaveChangesAsync`
+  operation to persist all staged changes together. Do not add a Unit of Work
+  property for every entity. Controllers and endpoints stay thin; application
+  services in Api/Services depend on `IUnitOfWork`, perform a use case, and
+  save once after its changes are ready. Keep pure domain invariants in Domain.
+- Register specific repositories against both their custom interface and
+  `IRepository<T>`. Unregistered aggregate types use the generic EF
+  implementation. In unit tests, replace `IRepositoryFactory` with a fake that
+  returns in-memory repositories.
+
+Factory and provider contracts and implementations:
+
+```csharp
+public interface IRepositoryFactory
+{
+  IRepository<T> Create<T>() where T : class;
+  TRepository CreateCustom<TRepository>() where TRepository : class;
+}
+
+public sealed class RepositoryFactory(
+  IServiceProvider services,
+  AppDbContext context) : IRepositoryFactory
+{
+  public IRepository<T> Create<T>() where T : class =>
+    services.GetService<IRepository<T>>() ?? new EfRepository<T>(context);
+
+  public TRepository CreateCustom<TRepository>() where TRepository : class =>
+    services.GetRequiredService<TRepository>();
+}
+
+public interface IRepositoryProvider
+{
+  IRepository<T> GetRepository<T>() where T : class;
+  TRepository GetCustomRepository<TRepository>() where TRepository : class;
+}
+
+public sealed class RepositoryProvider(IRepositoryFactory factory)
+  : IRepositoryProvider
+{
+  private readonly Dictionary<Type, object> cache = [];
+
+  public IRepository<T> GetRepository<T>() where T : class =>
+    GetOrCreate(() => factory.Create<T>());
+
+  public TRepository GetCustomRepository<TRepository>() where TRepository : class =>
+    GetOrCreate(() => factory.CreateCustom<TRepository>());
+
+  private TService GetOrCreate<TService>(Func<TService> create)
+    where TService : class
+  {
+    if (!cache.TryGetValue(typeof(TService), out var repository))
+      cache[typeof(TService)] = repository = create();
+
+    return (TService)repository;
+  }
+}
+```
+
+The Unit of Work exposes repositories without per-entity properties:
+
+```csharp
+public interface IUnitOfWork
+{
+  IRepository<T> Repository<T>() where T : class;
+  TRepository CustomRepository<TRepository>() where TRepository : class;
+  Task<int> SaveChangesAsync(CancellationToken token = default);
+}
+
+public sealed class UnitOfWork(
+  AppDbContext context,
+  IRepositoryProvider provider) : IUnitOfWork
+{
+  public IRepository<T> Repository<T>() where T : class =>
+    provider.GetRepository<T>();
+
+  public TRepository CustomRepository<TRepository>() where TRepository : class =>
+    provider.GetCustomRepository<TRepository>();
+
+  public Task<int> SaveChangesAsync(CancellationToken token = default) =>
+    context.SaveChangesAsync(token);
+}
+```
+
+Register the factory/provider/Unit of Work and map specific repositories to
+both interfaces in `Program.cs`:
+
+```csharp
+builder.Services.AddScoped<IRepositoryFactory, RepositoryFactory>();
+builder.Services.AddScoped<IRepositoryProvider, RepositoryProvider>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IRepository<Order>>(
+  services => services.GetRequiredService<IOrderRepository>());
+```
+
 - Enforce keys, uniqueness, and foreign keys in the database. Use transactions
-  within one service only. Cross-service consistency uses REST or events.
+  Application services use the custom repository for specialized queries and
+  the generic repository otherwise, then save the complete use case once:
+
+  ```csharp
+  public sealed class OrderService(IUnitOfWork unitOfWork)
+  {
+    public Task<Order?> GetWithItemsAsync(int id, CancellationToken token) =>
+      unitOfWork.CustomRepository<IOrderRepository>()
+        .GetWithItemsAsync(id, token);
+
+    public async Task AddProductAsync(Product product, CancellationToken token)
+    {
+      await unitOfWork.Repository<Product>().AddAsync(product, token);
+      await unitOfWork.SaveChangesAsync(token);
+    }
+  }
+  ```
+
+  - Enforce keys, uniqueness, and foreign keys in the database. Use transactions
+    within one service only. Cross-service consistency uses REST or events.
 
 ## Event-Driven Integration
 
 - Publish through an `IEventBus` abstraction. Keep transport adapters in
-  Infrastructure.
+  Data.
 - Publish facts, named in the past tense: `RecipePublished`, `RecipeUpdated`,
   `RecipeUnpublished`, `RecipeRated`, `ReviewModerationChanged`,
   `MealPlanChanged`, `PantryItemExpiring`, `UserProfileUpdated`,
@@ -242,30 +421,29 @@ app.MapPut("/api/v1/folders/{folderId:guid}", async (
 public sealed record SaveFolderRequest(string Name);
 ```
 
-An idempotent handler: the inbox record and the side effect commit in one
-transaction, and the bulk update runs as one bounded SQL statement.
-`ProcessedEvent.Id` is the primary key, so a concurrent duplicate fails on save,
-rolls back, and goes back through retry.
+An idempotent handler: the inbox record and side effect are staged through
+repositories and committed together by the Unit of Work. `ProcessedEvent.Id` is
+the primary key, so a concurrent duplicate fails on commit and goes back
+through retry.
 
 ```csharp
 public async Task HandleAsync(
     EventEnvelope<RecipeUnpublished> message,
-    CookbookDbContext db,
+    IUnitOfWork unitOfWork,
     CancellationToken token)
 {
-    if (await db.ProcessedEvents.AnyAsync(x => x.Id == message.EventId, token))
+    var processedEvents = unitOfWork.Repository<ProcessedEvent>();
+    if (await processedEvents.AnyAsync(x => x.Id == message.EventId, token))
         return;
 
-    await using var transaction = await db.Database.BeginTransactionAsync(token);
+    var savedRecipes = unitOfWork.Repository<SavedRecipe>();
+    var matches = await savedRecipes.ListAsync(
+        x => x.RecipeId == message.Payload.RecipeId, token);
+    foreach (var savedRecipe in matches)
+        savedRecipe.MarkUnavailable();
 
-    await db.SavedRecipes
-        .Where(x => x.RecipeId == message.Payload.RecipeId)
-        .ExecuteUpdateAsync(
-            update => update.SetProperty(x => x.IsAvailable, false), token);
-
-    db.ProcessedEvents.Add(new ProcessedEvent { Id = message.EventId });
-    await db.SaveChangesAsync(token);
-    await transaction.CommitAsync(token);
+    processedEvents.Add(new ProcessedEvent { Id = message.EventId });
+    await unitOfWork.SaveChangesAsync(token);
 }
 ```
 
@@ -275,15 +453,19 @@ Apply these rules from Milestone 1. Until Milestone 3, the exceptions are real
 JWT validation (see Authentication), rate limiting, CORS and header hardening,
 and the threat model.
 
-- **Authentication:** Validate JWT bearer tokens (issuer, audience, signature,
-  expiry). Run `UseAuthentication` before `UseAuthorization`. Apply a fallback
-  policy that requires authentication, and mark public endpoints explicitly.
-  Read the caller through `ICurrentUser`, implemented from authenticated
-  claims. Until Milestone 3, a Development-only authentication handler signs in
-  a configured test user holding every scope the policies require, so
-  endpoints keep `RequireAuthorization` and their named policies unchanged.
-  Startup fails if that handler is enabled outside Development. Mark `/health`
-  and development-only OpenAPI endpoints `AllowAnonymous`.
+- **Authentication:** Require a bearer access token for every protected API
+  endpoint. Validate JWT signature, issuer, audience, and lifetime using the
+  configured OIDC authority and supported signing algorithms; do not write
+  custom token validation or accept tokens from query strings. Reject missing,
+  invalid, expired, or incorrectly scoped tokens. Run `UseAuthentication`
+  before `UseAuthorization`. Apply a fallback policy that requires
+  authentication, and mark public endpoints explicitly. Read the caller
+  through `ICurrentUser`, implemented from authenticated claims. Until
+  Milestone 3, a Development-only authentication handler signs in a configured
+  test user holding every scope the policies require, so endpoints keep
+  `RequireAuthorization` and their named policies unchanged. Startup fails if
+  that handler is enabled outside Development. Mark `/health` and
+  development-only OpenAPI endpoints `AllowAnonymous`.
 - **Authorization:** Use named scope and claim policies (for example
   `recipes.write`). Separate administrator and moderator permissions from user
   permissions. Enforce authorization at the owning service.
@@ -309,9 +491,11 @@ and the threat model.
   and answer with 429. Configure login brute-force protection in the identity
   provider.
 - **Errors and logs:** Return problem details with a correlation ID and no stack
-  traces, SQL, or tokens. Never log passwords, tokens, full allergy profiles,
-  or sensitive prompts. Redact personal data and write structured audit records
-  for moderation, permission changes, deletions, and AI generation requests.
+  traces, SQL, or tokens. Use Serilog request logging and structured message
+  templates; never build log messages by interpolating untrusted values. Never
+  log passwords, bearer tokens, API keys, full allergy profiles, or sensitive
+  prompts. Redact personal data and write structured audit records for
+  moderation, permission changes, deletions, and AI generation requests.
 - **Allergies and diets:** Treat them as safety-sensitive. Recipes state
   allergens explicitly, and missing allergen data counts as unknown. Filtering
   fails closed on missing or ambiguous data. API responses mark allergy
@@ -325,7 +509,7 @@ and the threat model.
 
 ## AI Safety
 
-- Keep provider calls behind an interface in Infrastructure. Never call a
+- Keep provider calls behind an interface in Data. Never call a
   provider from controllers, endpoints, or domain logic.
 - Send the minimum user data. Document retention. Never send secrets or
   unneeded profile data.
@@ -347,14 +531,20 @@ and the threat model.
 
 - Write deterministic xUnit tests that use no production services or real user
   data.
-- **Unit:** application services, domain rules, validators, filtering,
-  authorization decisions, layer rules (architecture tests).
-- **Integration:** `WebApplicationFactory<Program>` against a realistic test
+- **Unit:** Domain services and rules, API orchestration services, validators,
+  filtering, authorization decisions, and layer rules (architecture tests).
+- Verify repository factory results share the Unit of Work's `DbContext`,
+  repositories do not commit, and one Unit of Work commit persists changes
+  across multiple repositories.
+- **Integration:** `WebApplicationFactory<Program>` against a SQL Server test
   database with migrations applied. Cover persistence, API behavior,
-  authentication, and ownership.
-- **Contract:** service REST APIs and event schemas.
-- **End to end (selective):** registration, preference-based search, saving a
-  recipe, meal planning, pantry and equipment filtering, review submission.
+  authentication, and ownership. Verify missing, malformed, expired, wrong
+  issuer/audience, and insufficient-scope bearer tokens are rejected, while a
+  valid token reaches authorized endpoints.
+- Keep contract and selective end-to-end tests in the integration test project
+  when those test types are needed. Cover registration, preference-based
+  search, saving a recipe, meal planning, pantry and equipment filtering, and
+  review submission.
 - **Failure paths:** timeouts, retries, dependency outage with fallback,
   duplicate and out-of-order events, dead-lettering, cancellation, pagination
   limits, invalid and oversized input, 401, 403, IDOR, injection payloads,
