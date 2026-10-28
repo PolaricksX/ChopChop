@@ -132,7 +132,7 @@ introducing an alternative.
   |   |   |-- Services/              (application orchestration services)
   |   |   |-- Program.cs
   |   |   |-- appsettings.json
-  |   |-- ServiceName.Client/        (React or ASP.NET Core client)
+  |   |-- ServiceName.Client/        (React browser frontend)
   |-- tests/
       |-- ServiceName.UnitTests/
       |-- ServiceName.IntegrationTests/
@@ -147,9 +147,10 @@ introducing an alternative.
 - Put `IRepository<TAggregate>` and `IUnitOfWork` abstractions in Data, alongside
   their EF Core implementations. This keeps EF types out of Api/Services while
   preserving the stated Api-to-Data dependency direction.
-- Each service owns its projects and migrations. The Client project consumes
-  APIs and contains no server-side business rules. A gateway is out of scope
-  unless an ADR adds one.
+- Each service owns its projects and migrations. Implement the Client project
+  as a React browser frontend that consumes service APIs over HTTP and uses
+  authorization-code flow with PKCE. It contains no server-side business rules
+  or client secrets. A gateway is out of scope unless an ADR adds one.
 - All services use one shared SQL Server database and connection string. Each
   service owns its tables, migrations, and persistence models, and services may
   join owned tables in application queries when a workflow needs data from more
@@ -449,26 +450,33 @@ public async Task HandleAsync(
 
 ## Security
 
-Apply these rules from Milestone 1. Until Milestone 3, the exceptions are real
-JWT validation (see Authentication), rate limiting, CORS and header hardening,
-and the threat model.
+Apply these rules from Milestone 1, including real bearer-token validation,
+rate limiting, CORS and header hardening, and the threat model. Configure the
+identity provider per environment; do not bypass authentication in development.
 
-- **Authentication:** Require a bearer access token for every protected API
-  endpoint. Validate JWT signature, issuer, audience, and lifetime using the
-  configured OIDC authority and supported signing algorithms; do not write
-  custom token validation or accept tokens from query strings. Reject missing,
-  invalid, expired, or incorrectly scoped tokens. Run `UseAuthentication`
-  before `UseAuthorization`. Apply a fallback policy that requires
-  authentication, and mark public endpoints explicitly. Read the caller
-  through `ICurrentUser`, implemented from authenticated claims. Until
-  Milestone 3, a Development-only authentication handler signs in a configured
-  test user holding every scope the policies require, so endpoints keep
-  `RequireAuthorization` and their named policies unchanged. Startup fails if
-  that handler is enabled outside Development. Mark `/health` and
+- **Authentication:** Configure ASP.NET Core's framework JWT bearer handler
+  against the environment-configured authority/issuer and the API's expected
+  audience. Require a valid signature, issuer, audience, and expiry; use
+  supported signing algorithms and standard OIDC metadata/key rotation. Never
+  treat decoding a JWT as validation, hand-roll token validation, accept
+  bearer tokens from query strings, or use a permissive development
+  authentication handler. Keep authority and audience configurable per
+  environment. Run `UseAuthentication` before `UseAuthorization`. Apply a
+  fallback policy that requires authentication, and mark public endpoints
+  explicitly. Derive the current user only from validated token claims through
+  `ICurrentUser`; never trust identity or owner values supplied separately in
+  request bodies or headers.
+- **Interactive clients:** Use the authorization-code flow with PKCE for
+  browser and other public clients. The API never collects identity-provider
+  passwords. Never embed client secrets in browser or mobile applications.
+- **Authorization:** Define named, reusable policies for documented scopes or
+  claims (for example `orders.read` and `orders.write`); being signed in alone
+  is not sufficient. Mark every endpoint public or protected intentionally
+  and apply least privilege: read scopes for queries, write scopes for create,
+  update, and cancel operations. Separate administrator and moderator
+  permissions from user permissions. Enforce authorization at the owning
+  service. Mark only intentionally public routes such as `/health` and
   development-only OpenAPI endpoints `AllowAnonymous`.
-- **Authorization:** Use named scope and claim policies (for example
-  `recipes.write`). Separate administrator and moderator permissions from user
-  permissions. Enforce authorization at the owning service.
 - **Ownership:** Take the user ID from authenticated claims only. Filter every
   private query by owner, and return 404 for resources the caller does not own.
 - **Service identities:** Use least-privilege scopes for service-to-service
@@ -538,9 +546,14 @@ and the threat model.
   across multiple repositories.
 - **Integration:** `WebApplicationFactory<Program>` against a SQL Server test
   database with migrations applied. Cover persistence, API behavior,
-  authentication, and ownership. Verify missing, malformed, expired, wrong
-  issuer/audience, and insufficient-scope bearer tokens are rejected, while a
-  valid token reaches authorized endpoints.
+  authentication, and ownership. Exercise the framework JWT bearer handler
+  with test signing credentials and configured test issuer/audience; do not
+  replace it with a permissive fake authentication scheme. Verify that a
+  protected request without a token returns 401; malformed, invalid-signature,
+  expired, wrong-issuer, and wrong-audience tokens return 401; a valid token
+  lacking the required scope or claim returns 403; a valid token with the
+  required scope succeeds while a token with a different scope returns 403;
+  and explicitly public endpoints remain accessible without a token.
 - Keep contract and selective end-to-end tests in the integration test project
   when those test types are needed. Cover registration, preference-based
   search, saving a recipe, meal planning, pantry and equipment filtering, and
@@ -573,6 +586,10 @@ For every service and cross-service feature, update `docs/` with:
 
 - Purpose, ownership, boundaries, and data model summary.
 - Endpoint or event contracts, including authentication and authorization.
+- For the sign-in flow, identify the client, resource owner, authorization
+  server, and resource server. Document authorization-code with PKCE for
+  interactive public clients, and map each API operation to its required token
+  scopes or claims.
 - Local configuration, port, and startup commands, without secrets.
 - Failure modes, retry and idempotency behavior, and observability signals.
 - Tests run, evidence, trade-offs, and known limitations.
