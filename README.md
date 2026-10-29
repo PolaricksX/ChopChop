@@ -14,3 +14,7 @@
   - `KitchenHelperMultiDB_Update.drawio`
   - `Services Diagram.png`
   - `reflection.md`
+  - `user-service.md` — User Service contract, configuration and limitations
+- `src/` — `UserService.Domain`, `UserService.Data`, `UserService.Api`
+- `tests/` — `UserService.UnitTests`, `UserService.IntegrationTests`
+- `Solution.sln` — build with `dotnet build`, test with `dotnet test`
