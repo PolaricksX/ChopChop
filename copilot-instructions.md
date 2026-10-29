@@ -24,10 +24,13 @@ advice.
 
 ## Current Milestone
 
-**Current milestone: 1 (SOA Foundation).** Scope and deliverables for every
-milestone live in `docs/milestones.md`. Build what the current milestone
-requires and nothing ahead of it. Validation, authorization structure, error
-handling, and logging apply in every milestone.
+**Current milestone: 3 (Layered Service Development).** Scope and deliverables
+live in `docs/milestones.md`. The active assignment in this repository is AI
+Recipe Generation and Interactive Review (#18 and #19). Implement only those
+assigned services and their approved client/infrastructure/documentation work;
+do not implement other team members' services. Keep the two services
+independently runnable and preserve ownership boundaries. Validation,
+authorization, error handling, and logging apply in every milestone.
 
 ## Technical Baseline
 
@@ -105,10 +108,11 @@ introducing an alternative.
 
 ## Structure
 
-- The repository root is `Solution/` and contains `Solution.sln`, `src/`,
-  `tests/`, and `docs/`. `src/` holds service projects and the client;
-  `tests/` holds service tests; `docs/` holds ADRs, contracts, diagrams, the
-  threat model, setup steps, and milestone evidence.
+- The application solution root is `Solution/` and contains `Solution.sln`,
+  `src/`, `tests/`, and `docs/`. The repository root also retains milestone
+  process assets and existing diagrams. `Solution/src/` holds service projects
+  and the client; `Solution/tests/` holds service tests; `Solution/docs/` holds
+  ADRs, contracts, the threat model, setup steps, and implementation evidence.
 - Each service uses this project and folder layout:
 
   ```text
