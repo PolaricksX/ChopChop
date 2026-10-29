@@ -11,8 +11,8 @@ runnable, strictly layered services and explicit data ownership.
 ## Decision
 
 Create separate Domain, Data, and Api projects for AI Recipe Generation and
-Interactive Review under `Solution/src/`, plus one React client under
-`Solution/src/`. Each service owns its schema, DbContext, migrations, and
+Interactive Review under `src/`, plus one React client under
+`src/`. Each service owns its schema, DbContext, migrations, and
 service workflows in the shared SQL Server instance. Dependencies flow Api to
 Data/Domain and Data to Domain. Domain has no EF Core or ASP.NET Core
 references. Only stable event/correlation/result primitives may be shared.

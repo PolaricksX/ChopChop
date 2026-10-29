@@ -13,7 +13,7 @@
 - Service setup and API contracts are documented in
   [docs/local-development.md](docs/local-development.md) and
   [docs/api-contracts.md](docs/api-contracts.md). The .NET solution and React
-  client live under `Solution/`.
+  client live under `src/` (client: `src/ChopChop.Client`).
 
 ## Repository structure
 
@@ -28,6 +28,7 @@
   - `Services Diagram.png`
   - `reflection.md`
   - `user-service.md` — User Service contract, configuration and limitations
-- `src/` — `UserService.Domain`, `UserService.Data`, `UserService.Api`
-- `tests/` — `UserService.UnitTests`, `UserService.IntegrationTests`
+- `src/` — `UserService.*`, `AiRecipeGeneration.*`, `InteractiveReview.*`
+  (Domain, Data, Api), `ChopChop.Shared`, and `ChopChop.Client` (React)
+- `tests/` — unit and integration tests for each service
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`

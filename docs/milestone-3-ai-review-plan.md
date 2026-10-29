@@ -78,7 +78,7 @@ responsibilities.
 
 1. **Milestone conflict:** the current-milestone line, root structure statement,
    commands, and milestone documents must be aligned with the actual new
-   `Solution/` structure. Do not silently leave Milestone 1 active.
+   root `src/`/`tests/` structure. Do not silently leave Milestone 1 active.
 2. **No implementation exists:** do not retrofit the mock classes as production
    models or claim existing tests/ADRs/configuration are reusable.
 3. **Provider decision:** no AI provider or credential has been selected in
@@ -109,7 +109,7 @@ responsibilities.
 
 ### Proposed solution
 
-Create a .NET 10 solution under `Solution/` with two independent service
+Create a .NET 10 solution at the repository root (`src/`, `tests/`, `Solution.sln`, aligned with the User Service layout merged from main) with two independent service
 verticals and a React client. Keep Domain free of framework/persistence
 references, keep EF Core and provider/storage adapters in Data, and keep API
 endpoints thin. Use shared SQL Server infrastructure only; each service owns
@@ -186,7 +186,7 @@ Solution/
 
 Keep the existing root `docs/` diagrams and Milestone 2 evidence; do not move or
 delete them as part of this task. Update the root README and root instructions
-to point to `Solution/` once the approved structure exists.
+to point to the root layout once the approved structure exists.
 
 ### Work breakdown
 
@@ -333,7 +333,7 @@ the current code:
 
 ## Validation plan
 
-Run from `Solution/` after the projects and manifests exist:
+Run from the repository root after the projects and manifests exist:
 
 ```powershell
 dotnet restore Solution.sln

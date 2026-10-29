@@ -11,7 +11,7 @@ services.
 
 ## Scope
 
-- Write production code only under `Solution/src/*Data/`.
+- Write production code only under `src/*Data/`.
 - Read the approved ADRs, repository Data guidance, domain contracts, and
   neighboring Data implementation before editing.
 - Report required API registrations or test cases instead of editing other

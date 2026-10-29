@@ -34,19 +34,19 @@ $env:ASPNETCORE_ENVIRONMENT = "Development"
 $connection = "Server=localhost,1433;Database=ChopChop;User Id=sa;Password=<your-sql-password>;Encrypt=True;TrustServerCertificate=True"
 $rabbit = "amqp://<rabbit-user>:<rabbit-password>@localhost:5672/"
 
-dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project Solution\src\AiRecipeGeneration.Api
-dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project Solution\src\AiRecipeGeneration.Api
-dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project Solution\src\InteractiveReview.Api
-dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project Solution\src\InteractiveReview.Api
+dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\AiRecipeGeneration.Api
+dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\AiRecipeGeneration.Api
+dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\InteractiveReview.Api
+dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\InteractiveReview.Api
 ```
 
 For AI generation, also configure the Azure OpenAI v1 endpoint, deployment
 name, and API key only in the AI API's user secrets:
 
 ```powershell
-dotnet user-secrets set "AzureOpenAI:Endpoint" "https://<resource>.openai.azure.com" --project Solution\src\AiRecipeGeneration.Api
-dotnet user-secrets set "AzureOpenAI:Deployment" "<deployment-name>" --project Solution\src\AiRecipeGeneration.Api
-dotnet user-secrets set "AzureOpenAI:ApiKey" "<secret>" --project Solution\src\AiRecipeGeneration.Api
+dotnet user-secrets set "AzureOpenAI:Endpoint" "https://<resource>.openai.azure.com" --project src\AiRecipeGeneration.Api
+dotnet user-secrets set "AzureOpenAI:Deployment" "<deployment-name>" --project src\AiRecipeGeneration.Api
+dotnet user-secrets set "AzureOpenAI:ApiKey" "<secret>" --project src\AiRecipeGeneration.Api
 ```
 
 The adapter appends `/openai/v1/chat/completions` to the endpoint. Never place
@@ -60,8 +60,8 @@ database. Run each migration from the repository root:
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Development"
-dotnet ef database update --project Solution\src\AiRecipeGeneration.Data --startup-project Solution\src\AiRecipeGeneration.Api --context AiRecipeDbContext
-dotnet ef database update --project Solution\src\InteractiveReview.Data --startup-project Solution\src\InteractiveReview.Api --context InteractiveReviewDbContext
+dotnet ef database update --project src\AiRecipeGeneration.Data --startup-project src\AiRecipeGeneration.Api --context AiRecipeDbContext
+dotnet ef database update --project src\InteractiveReview.Data --startup-project src\InteractiveReview.Api --context InteractiveReviewDbContext
 ```
 
 The AI service uses schema `ai_recipe`; the review service uses
@@ -72,18 +72,18 @@ The AI service uses schema `ai_recipe`; the review service uses
 Open separate PowerShell terminals from the repository root:
 
 ```powershell
-dotnet run --project Solution\src\AiRecipeGeneration.Api --launch-profile AiRecipeGeneration.Api
+dotnet run --project src\AiRecipeGeneration.Api --launch-profile AiRecipeGeneration.Api
 ```
 
 ```powershell
-dotnet run --project Solution\src\InteractiveReview.Api --launch-profile InteractiveReview.Api
+dotnet run --project src\InteractiveReview.Api --launch-profile InteractiveReview.Api
 ```
 
 In another terminal:
 
 ```powershell
-Copy-Item Solution\src\ChopChop.Client\.env.example Solution\src\ChopChop.Client\.env.local
-Set-Location Solution\src\ChopChop.Client
+Copy-Item src\ChopChop.Client\.env.example src\ChopChop.Client\.env.local
+Set-Location src\ChopChop.Client
 npm ci
 npm run dev
 ```
@@ -109,13 +109,13 @@ secured secret store.
 ## 5. Validate changes
 
 ```powershell
-dotnet restore Solution\ChopChop.sln
-dotnet build Solution\ChopChop.sln -c Release --no-restore
-dotnet test Solution\ChopChop.sln -c Release --no-build
-dotnet format Solution\ChopChop.sln --verify-no-changes
-dotnet list Solution\ChopChop.sln package --vulnerable --include-transitive
+dotnet restore Solution.sln
+dotnet build Solution.sln -c Release --no-restore
+dotnet test Solution.sln -c Release --no-build
+dotnet format Solution.sln --verify-no-changes
+dotnet list Solution.sln package --vulnerable --include-transitive
 
-Set-Location Solution\src\ChopChop.Client
+Set-Location src\ChopChop.Client
 npm ci
 npm run build
 npm test

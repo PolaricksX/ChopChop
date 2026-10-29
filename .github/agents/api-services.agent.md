@@ -11,7 +11,7 @@ Interactive Review.
 
 ## Scope
 
-- Write production code only under `Solution/src/*.Api/`.
+- Write production code only under `src/*.Api/`.
 - Read the approved ADRs, API contracts, repository guidance, and the Domain
   and Data contracts before editing.
 - Keep HTTP endpoints thin and delegate use cases to application services.

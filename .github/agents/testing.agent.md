@@ -10,7 +10,7 @@ You implement tests for AI Recipe Generation and Interactive Review.
 
 ## Scope
 
-- Write test code only under `Solution/tests/`.
+- Write test code only under `tests/`.
 - Read acceptance criteria, project test configuration, actual behavior, and
   existing test conventions before editing.
 

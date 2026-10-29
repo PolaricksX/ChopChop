@@ -5,7 +5,7 @@ description: Use before marking a ChopChop issue ready for review; run the repos
 
 # ChopChop Validation
 
-Read `Solution/README.md` and project scripts before choosing commands. Run
+Read `README.md` and project scripts before choosing commands. Run
 restore, Release build, focused unit/integration tests, format verification,
 vulnerability audit, and the actual client typecheck/test/build scripts.
 

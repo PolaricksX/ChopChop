@@ -1,13 +1,13 @@
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using AiRecipeGeneration.Api.Contracts;
+using AiRecipeGeneration.Api.Services;
 using AiRecipeGeneration.Data;
 using AiRecipeGeneration.Data.Context;
 using AiRecipeGeneration.Data.Messaging;
-using AiRecipeGeneration.Api.Contracts;
-using AiRecipeGeneration.Api.Services;
-using ChopChop.Shared;
 using AiRecipeGeneration.Data.Providers;
+using ChopChop.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;

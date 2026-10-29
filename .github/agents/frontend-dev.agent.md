@@ -10,7 +10,7 @@ You implement the ChopChop React browser client.
 
 ## Scope
 
-- Write client code only under `Solution/src/ChopChop.Client/`.
+- Write client code only under `src/ChopChop.Client/`.
 - Read the approved plan, public API contracts, frontend starter-pack reference,
   and existing client code before editing.
 - Keep components focused, typed, accessible, and covered by behavior tests.

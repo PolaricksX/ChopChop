@@ -15,7 +15,7 @@ projects yet.
 Set the repository guidance to Milestone 3 and implement only the assigned AI
 Recipe Generation and Interactive Review services, their connected client, and
 direct supporting infrastructure/documentation. Keep the two services
-independently runnable under `Solution/`. Do not claim completion of other
+independently runnable under the repository root `src/` and `tests/`. Do not claim completion of other
 team members' services or team-level milestone submission, PR, or peer gates.
 
 ## Consequences

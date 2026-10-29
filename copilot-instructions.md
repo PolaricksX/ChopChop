@@ -108,15 +108,15 @@ introducing an alternative.
 
 ## Structure
 
-- The application solution root is `Solution/` and contains `Solution.sln`,
-  `src/`, `tests/`, and `docs/`. The repository root also retains milestone
-  process assets and existing diagrams. `Solution/src/` holds service projects
-  and the client; `Solution/tests/` holds service tests; `Solution/docs/` holds
-  ADRs, contracts, the threat model, setup steps, and implementation evidence.
+- The application solution root is the repository root and contains
+  `Solution.sln`, `src/`, `tests/`, and `docs/`, alongside the milestone
+  process assets and existing diagrams. `src/` holds service projects and the
+  client; `tests/` holds service tests; `docs/` holds ADRs, contracts, the
+  threat model, setup steps, and implementation evidence.
 - Each service uses this project and folder layout:
 
   ```text
-  Solution/
+  (repository root)
   |-- Solution.sln
   |-- src/
   |   |-- ServiceName.Domain/

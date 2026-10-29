@@ -10,7 +10,7 @@ You implement the Domain layer for AI Recipe Generation and Interactive Review.
 
 ## Scope
 
-- Write production code only under `Solution/src/*Domain/`.
+- Write production code only under `src/*Domain/`.
 - Read repository instructions, approved ADRs, the R-PIV skill, relevant issues,
   and existing domain code before changing files.
 - Add or update domain unit tests only when the task explicitly delegates tests
