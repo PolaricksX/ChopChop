@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\AiRecipeGeneration.Domain\AiRecipeGeneration.Domain.csproj" />
+    <ProjectReference Include="..\ChopChop.Shared\ChopChop.Shared.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="RabbitMQ.Client" />
+  </ItemGroup>
+</Project>
