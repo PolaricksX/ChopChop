@@ -27,7 +27,7 @@ Errors are RFC 9457 problem details including `correlationId` (`X-Correlation-Id
 - Email and username are unique (case-insensitive) among non-deleted profiles. Deleting frees them.
 
 ## Configuration
-`ConnectionStrings:UserService`, `Auth:Authority`, `Auth:Audience`, `Cors` allowlist and `RateLimiting:PermitLimit` (default 100/min). No secrets are committed; supply them via environment variables, for example `ConnectionStrings__UserService`.
+`ConnectionStrings:ChopChop`, `Auth:Authority`, `Auth:Audience`, `Cors` allowlist and `RateLimiting:PermitLimit` (default 100/min). Services use this shared SQL Server database while owning separate tables. No secrets are committed; supply the connection string via `ConnectionStrings__ChopChop`.
 
 ## Running
 ```

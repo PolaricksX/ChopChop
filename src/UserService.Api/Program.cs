@@ -24,8 +24,17 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 builder.Services.AddUserServiceData(sp =>
-    sp.GetRequiredService<IConfiguration>().GetConnectionString("UserService")
-    ?? throw new InvalidOperationException("ConnectionStrings:UserService is not configured."));
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var connectionString = configuration.GetConnectionString("ChopChop");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        connectionString = configuration.GetConnectionString("UserService");
+    }
+
+    return connectionString
+        ?? throw new InvalidOperationException("ConnectionStrings:ChopChop is not configured.");
+});
 
 builder.Services.AddOptions<AuthOptions>()
     .BindConfiguration("Auth")

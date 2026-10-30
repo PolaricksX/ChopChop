@@ -39,7 +39,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseEnvironment("Development");
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:UserService"] = ConnectionString,
+            ["ConnectionStrings:ChopChop"] = ConnectionString,
             ["Auth:Authority"] = TestJwt.Issuer,
             ["Auth:Audience"] = TestJwt.Audience,
             ["RateLimiting:PermitLimit"] = PermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),

@@ -10,11 +10,15 @@
   - `frontend-agent.md`
   - `api-services-agent.md`
   - `data-access-agent.md`
-- `docs/` — documentation assets for milestone evidence:
+- `docs/` — documentation assets for milestone evidence and service contracts:
   - `KitchenHelperMultiDB_Update.drawio`
   - `Services Diagram.png`
   - `reflection.md`
   - `user-service.md` — User Service contract, configuration and limitations
-- `src/` — `UserService.Domain`, `UserService.Data`, `UserService.Api`
-- `tests/` — `UserService.UnitTests`, `UserService.IntegrationTests`
+  - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
+- `src/` — `UserService.*` and `MealPlanner.*` Domain/Data/Api projects
+- `tests/` — unit and SQL Server integration tests for both services
+- `compose.yaml` — local SQL Server and RabbitMQ dependencies; set required credentials through environment variables
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`
+
+Services use the shared `ConnectionStrings:ChopChop` database connection and own separate tables.

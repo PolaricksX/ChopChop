@@ -9,8 +9,9 @@ internal sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<U
 {
     public UserServiceDbContext CreateDbContext(string[] args)
     {
-        var connection = Environment.GetEnvironmentVariable("ConnectionStrings__UserService")
-            ?? "Server=(localdb)\\MSSQLLocalDB;Database=ChopChopUserService;Trusted_Connection=True;TrustServerCertificate=True";
+        var connection = Environment.GetEnvironmentVariable("ConnectionStrings__ChopChop")
+            ?? Environment.GetEnvironmentVariable("ConnectionStrings__UserService")
+            ?? "Server=(localdb)\\MSSQLLocalDB;Database=ChopChop;Trusted_Connection=True;TrustServerCertificate=True";
         var options = new DbContextOptionsBuilder<UserServiceDbContext>().UseSqlServer(connection).Options;
         return new UserServiceDbContext(options);
     }
