@@ -1,7 +1,7 @@
 # Agent: Frontend Layer (R-PIV)
 
 ## Purpose
-Reusable guidance for future UI/frontend work, even though this repository currently has no full frontend implementation.
+Reusable guidance for UI/frontend work in this repository.
 
 ## Mandatory process
 Follow **R-PIV** from `.github/skills/r-piv-skill.md` for every task.

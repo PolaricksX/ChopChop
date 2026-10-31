@@ -16,9 +16,13 @@
   - `reflection.md`
   - `user-service.md` — User Service contract, configuration and limitations
   - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
-- `src/` — `UserService.*` and `MealPlanner.*` Domain/Data/Api projects
+- `src/` — `UserService.*` and `MealPlanner.*` Domain/Data/Api projects; the
+  React browser client is in `src/MealPlanner.Client`
 - `tests/` — unit and SQL Server integration tests for both services
 - `compose.yaml` — local SQL Server and RabbitMQ dependencies; set required credentials through environment variables
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`
 
 Services use the shared `ConnectionStrings:ChopChop` database connection and own separate tables.
+
+See the [Meal Planning client guide](docs/meal-planning-client.md) for client
+setup, authentication, and API behavior.
