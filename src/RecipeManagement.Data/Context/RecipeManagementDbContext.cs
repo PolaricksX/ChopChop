@@ -20,7 +20,6 @@ public sealed class RecipeManagementDbContext(DbContextOptions<RecipeManagementD
         modelBuilder.ApplyConfiguration(new RecipeVersionConfiguration());
         modelBuilder.ApplyConfiguration(new IngredientConfiguration());
         modelBuilder.ApplyConfiguration(new InstructionStepConfiguration());
-        modelBuilder.ApplyConfiguration(new NutritionEstimateConfiguration());
         modelBuilder.ApplyConfiguration(new EquipmentRequirementConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessedEventConfiguration());

@@ -26,8 +26,8 @@ public sealed class RecipeVersionConfiguration : IEntityTypeConfiguration<Recipe
     public void Configure(EntityTypeBuilder<RecipeVersion> entity)
     {
         entity.ToTable("RecipeVersions");
+        entity.Property<Guid>("RecipeId").IsRequired();
         entity.HasKey("RecipeId", nameof(RecipeVersion.Version));
-        entity.Property<int>("RecipeId").IsRequired();
         entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
         entity.Property(x => x.Description).HasMaxLength(5_000).IsRequired();
         entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
@@ -44,6 +44,18 @@ public sealed class RecipeVersionConfiguration : IEntityTypeConfiguration<Recipe
         entity.HasMany(x => x.Ingredients).WithOne().HasForeignKey("RecipeId", "Version").OnDelete(DeleteBehavior.Cascade);
         entity.HasMany(x => x.InstructionSteps).WithOne().HasForeignKey("RecipeId", "Version").OnDelete(DeleteBehavior.Cascade);
         entity.HasMany(x => x.EquipmentRequirements).WithOne().HasForeignKey("RecipeId", "Version").OnDelete(DeleteBehavior.Cascade);
-        entity.OwnsOne(x => x.Nutrition, nutrition => nutrition.ToTable("NutritionEstimates"));
+        entity.OwnsOne(x => x.Nutrition, nutrition =>
+        {
+            nutrition.ToTable("NutritionEstimates");
+            nutrition.Property<Guid>("RecipeId").IsRequired();
+            nutrition.Property<int>("Version").IsRequired();
+            nutrition.HasKey("RecipeId", "Version");
+            nutrition.Property(x => x.Calories).HasPrecision(18, 3);
+            nutrition.Property(x => x.ProteinGrams).HasPrecision(18, 3);
+            nutrition.Property(x => x.CarbohydratesGrams).HasPrecision(18, 3);
+            nutrition.Property(x => x.FatGrams).HasPrecision(18, 3);
+            nutrition.Property(x => x.FiberGrams).HasPrecision(18, 3);
+            nutrition.Property(x => x.SodiumMilligrams).HasPrecision(18, 3);
+        });
     }
 }
