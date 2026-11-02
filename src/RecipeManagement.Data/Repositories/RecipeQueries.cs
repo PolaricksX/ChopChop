@@ -11,21 +11,26 @@ internal sealed class RecipeQueries(RecipeManagementDbContext context) : IRecipe
     {
         var query = context.Recipes
             .AsNoTracking()
-            .AsSplitQuery()
-            .Include(recipe => publishedOnly
-                ? recipe.Versions.Where(version => version.Status == RecipeStatus.Published)
-                : recipe.Versions)
-            .ThenInclude(version => version.Ingredients)
-            .Include(recipe => publishedOnly
-                ? recipe.Versions.Where(version => version.Status == RecipeStatus.Published)
-                : recipe.Versions)
-            .ThenInclude(version => version.InstructionSteps)
-            .Include(recipe => publishedOnly
-                ? recipe.Versions.Where(version => version.Status == RecipeStatus.Published)
-                : recipe.Versions)
-            .ThenInclude(version => version.EquipmentRequirements);
+            .AsSplitQuery();
 
-        return query;
+        if (publishedOnly)
+        {
+            return query
+                .Include(recipe => recipe.Versions.Where(version => version.Status == RecipeStatus.Published))
+                .ThenInclude(version => version.Ingredients)
+                .Include(recipe => recipe.Versions.Where(version => version.Status == RecipeStatus.Published))
+                .ThenInclude(version => version.InstructionSteps)
+                .Include(recipe => recipe.Versions.Where(version => version.Status == RecipeStatus.Published))
+                .ThenInclude(version => version.EquipmentRequirements);
+        }
+
+        return query
+            .Include(recipe => recipe.Versions)
+            .ThenInclude(version => version.Ingredients)
+            .Include(recipe => recipe.Versions)
+            .ThenInclude(version => version.InstructionSteps)
+            .Include(recipe => recipe.Versions)
+            .ThenInclude(version => version.EquipmentRequirements);
     }
 
     public async Task<PagedRecipes> GetDraftsAsync(

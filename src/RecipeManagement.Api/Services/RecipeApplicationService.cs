@@ -24,8 +24,11 @@ public sealed class RecipeApplicationService(IUnitOfWork unitOfWork, TimeProvide
         return new(result.Items.Select(x => x.ToDraftResponse()).ToArray(), result.Page, result.PageSize, result.TotalCount);
     }
 
-    public async Task<DraftRecipeResponse?> GetDraftAsync(Guid ownerId, Guid recipeId, CancellationToken ct) =>
-        (await unitOfWork.CustomRepository<IRecipeQueries>().GetOwnedDraftAsync(ownerId, recipeId, ct))?.ToDraftResponse();
+    public async Task<DraftRecipeResponse?> GetDraftAsync(Guid ownerId, Guid recipeId, CancellationToken ct)
+    {
+        var recipe = await unitOfWork.CustomRepository<IRecipeQueries>().GetOwnedForUpdateAsync(ownerId, recipeId, ct);
+        return recipe is { HasDraft: true } ? recipe.ToDraftResponse() : null;
+    }
 
     public async Task UpdateDraftAsync(Guid ownerId, Guid recipeId, UpdateRecipeRequest request, CancellationToken ct)
     {

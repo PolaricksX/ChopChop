@@ -70,7 +70,6 @@ public sealed class Recipe
 
     public RecipePublicationType Publish(DateTimeOffset nowUtc)
     {
-        var draft = Draft ?? throw new RecipeLifecycleException("A draft is required before publication.");
         var publicationType = Status switch
         {
             RecipeStatus.Draft => RecipePublicationType.FirstPublication,
@@ -79,8 +78,17 @@ public sealed class Recipe
             _ => throw new RecipeLifecycleException("The recipe cannot be published from its current state.")
         };
         RecipeLifecycle.EnsureTransition(Status, RecipeStatus.Published);
+        var version = Draft;
+        if (version is null && Status == RecipeStatus.Unpublished)
+        {
+            version = versions.Where(x => x.Status == RecipeStatus.Unpublished)
+                .OrderByDescending(x => x.Version)
+                .FirstOrDefault();
+        }
+
+        if (version is null) throw new RecipeLifecycleException("A draft is required before publication.");
         Published?.MarkSuperseded();
-        draft.MarkPublished(nowUtc);
+        version.MarkPublished(nowUtc);
         Status = RecipeStatus.Published;
         UpdatedAtUtc = nowUtc.ToUniversalTime();
         return publicationType;
