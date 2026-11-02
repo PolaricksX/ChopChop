@@ -13,6 +13,10 @@ import {
 import type { Generation, Review } from './api'
 import { userManager } from './auth'
 import './App.css'
+import { RecipeDetails } from './recipes/RecipeDetails'
+import { RecipeDrafts } from './recipes/RecipeDrafts'
+import { RecipeEditor } from './recipes/RecipeEditor'
+import { RecipeList } from './recipes/RecipeList'
 
 type Panel = 'recipe' | 'review' | 'moderation'
 
@@ -191,6 +195,12 @@ function App() {
     return <main className="shell"><p role="status">Loading your secure session…</p></main>
   }
 
+  const path = window.location.pathname
+  const recipeMatch = path.match(/^\/recipes\/([^/]+)$/)
+  const editMatch = path.match(/^\/recipes\/([^/]+)\/edit$/)
+  if (path === '/recipes' || path === '/recipes/') return <main className="shell"><RecipeList /></main>
+  if (recipeMatch) return <main className="shell"><RecipeDetails recipeId={recipeMatch[1]} /></main>
+
   if (!user) {
     return (
       <main className="shell auth-shell">
@@ -202,6 +212,10 @@ function App() {
         <p className="small-note">Secure sign-in uses your organization's OpenID Connect provider.</p>
       </main>
     )
+  }
+
+  if (path === '/drafts' || path === '/recipes/new' || editMatch) {
+    return <main className="shell"><header className="topbar"><a className="brand" href="/">chop<span>chop</span></a><button className="quiet" onClick={signOut}>Sign out</button></header>{path === '/drafts' ? <RecipeDrafts accessToken={user.access_token} /> : <RecipeEditor accessToken={user.access_token} recipeId={editMatch?.[1]} />}</main>
   }
 
   return (
