@@ -28,6 +28,7 @@ public interface IRecipeQueries
 {
     Task<PagedRecipes> GetDraftsAsync(Guid ownerId, int page, int pageSize, CancellationToken cancellationToken);
     Task<Recipe?> GetOwnedDraftAsync(Guid ownerId, Guid recipeId, CancellationToken cancellationToken);
+    Task<Recipe?> GetOwnedForUpdateAsync(Guid ownerId, Guid recipeId, CancellationToken cancellationToken);
     Task<Recipe?> GetPublishedAsync(Guid recipeId, CancellationToken cancellationToken);
     Task<Recipe?> GetPublishedVersionAsync(Guid recipeId, int version, CancellationToken cancellationToken);
     Task<PagedRecipes> SearchPublishedAsync(RecipeSearchCriteria criteria, CancellationToken cancellationToken);

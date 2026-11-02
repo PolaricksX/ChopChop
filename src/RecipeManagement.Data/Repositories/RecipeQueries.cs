@@ -66,6 +66,20 @@ internal sealed class RecipeQueries(RecipeManagementDbContext context) : IRecipe
                 recipe.Versions.Any(version => version.Status == RecipeStatus.Draft),
             cancellationToken);
 
+    public Task<Recipe?> GetOwnedForUpdateAsync(Guid ownerId, Guid recipeId, CancellationToken cancellationToken) =>
+        context.Recipes
+            .AsTracking()
+            .AsSplitQuery()
+            .Include(recipe => recipe.Versions)
+            .ThenInclude(version => version.Ingredients)
+            .Include(recipe => recipe.Versions)
+            .ThenInclude(version => version.InstructionSteps)
+            .Include(recipe => recipe.Versions)
+            .ThenInclude(version => version.EquipmentRequirements)
+            .SingleOrDefaultAsync(
+                recipe => recipe.Id == recipeId && recipe.OwnerId == ownerId,
+                cancellationToken);
+
     public Task<Recipe?> GetPublishedAsync(Guid recipeId, CancellationToken cancellationToken) =>
         WithContent(publishedOnly: true).SingleOrDefaultAsync(
             recipe => recipe.Id == recipeId && recipe.Status == RecipeStatus.Published,
