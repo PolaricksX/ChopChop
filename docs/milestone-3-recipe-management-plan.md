@@ -31,9 +31,9 @@ Generation ownership.
    version may exist for a recipe at a time.
 4. Reviews remain attached to the stable recipe ID. Interactive Review is not
    changed.
-5. The first publication emits `RecipePublished` only. Publishing a new version
-   over an older published version emits `RecipeUpdated` only. Draft edits emit
-   no recipe event.
+5. The first publication and a republication after unpublish emit
+   `RecipePublished`. Publishing a new version over a currently published
+   version emits `RecipeUpdated`. Draft edits emit no recipe event.
 6. Published list, search, and detail endpoints are anonymous. Draft and command
    endpoints are protected.
 7. Allergens use a fixed enum representing Health Canada priority allergens.
