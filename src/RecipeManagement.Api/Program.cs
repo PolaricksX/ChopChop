@@ -6,8 +6,8 @@ using RecipeManagement.Api.Infrastructure;
 using RecipeManagement.Api.Services;
 using RecipeManagement.Data;
 using RecipeManagement.Data.Repositories;
-using RecipeManagement.Domain.Exceptions;
 using RecipeManagement.Domain.Enums;
+using RecipeManagement.Domain.Exceptions;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();

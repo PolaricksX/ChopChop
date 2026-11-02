@@ -16,10 +16,14 @@ public sealed class RecipeEndpointsTests(ApiFactory factory) : IClassFixture<Api
 
     private static object Body(string title = "Tomato soup") => new
     {
-        title, description = "A simple recipe", servings = 2,
+        title,
+        description = "A simple recipe",
+        servings = 2,
         ingredients = new[] { new { name = "Tomato", quantity = 2m, unit = "piece" } },
         steps = new[] { new { order = 1, content = "Cook the tomato." } },
-        allergenStatus = "Declared", allergens = Array.Empty<string>(), tags = new[] { "quick" }
+        allergenStatus = "Declared",
+        allergens = Array.Empty<string>(),
+        tags = new[] { "quick" }
     };
 
     private async Task<HttpResponseMessage> SendAsync(Caller? caller, HttpMethod method, string url, object? body = null)
