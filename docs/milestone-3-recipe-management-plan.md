@@ -100,14 +100,14 @@ Generation ownership.
   `RecipeManagement.Api`, and the approved shared-client integration.
 - `RecipeManagement.UnitTests` and `RecipeManagement.IntegrationTests`.
 - Recipe aggregate, immutable versions, lifecycle, validation, search,
-  filtering, allergen semantics, equipment matching, outbox events, and the
-  idempotent `UserDeleted` consumer.
+  filtering, allergen semantics, and equipment matching.
 - Versioned REST API under `/api/v1/recipes`.
 - React screens for draft creation/editing, publication, unpublication,
   published search/list/detail, and error/validation handling.
-- API/event/setup/observability documentation.
+- API, authorization-flow, token-validation, endpoint-policy, test-results,
+  setup, and observability documentation.
 
-### Out of scope
+### Out of scope for Milestone 3
 
 - Ratings, reviews, saved recipes, folders, meal plans, user allergies,
   nutrition goals, pantry ownership, equipment ownership, AI provider work, a
@@ -115,6 +115,9 @@ Generation ownership.
 - Direct access to another service's tables or code.
 - A separate `RecipeManagement.Client` project; the client is
   `src/ChopChop.Client`.
+- Events, outbox dispatch, RabbitMQ consumer, and `UserDeleted` handling.
+- Idempotency and rate limiting.
+- Threat model and ADR.
 
 ### Layer rules
 
@@ -330,17 +333,12 @@ using the identifiers in the mapping below.
 
 | ID | Acceptance criterion | Implementation files | Required tests |
 |---|---|---|---|
-| AC1 | Domain, Data, API, and shared-client boundaries; DTO-only HTTP surface; architecture test | All project files; `Solution.sln`; `Architecture/LayerRulesTests.cs`; API contracts/mappings | `LayerRulesTests` |
-| AC2 | Authenticated users can CRUD their own drafts, publish/unpublish, and cannot access another user's drafts | `Recipe.cs`, `RecipeVersion.cs`, `RecipeApplicationService.cs`, `RecipeEndpoints.cs`, Data queries | `RecipeCrudTests`, `RecipeLifecycleTests`, domain lifecycle tests |
-| AC3 | Invalid recipes and oversized input return `400` problem details | Domain validator, API validator, request DTOs, Kestrel limits | `RecipeValidationTests`, `RecipeCrudTests`, `SecurityTests` |
-| AC4 | Published immutability, versioning, lifecycle conflicts, idempotency, and optimistic concurrency | Domain lifecycle/versioning, `UnitOfWork`, `IdempotencyRecord`, `IdempotencyQueries`, endpoints | `RecipeLifecycleTests`, `IdempotencyAndConcurrencyTests`, domain version tests |
-| AC5 | Search/filter correctness, pagination, fail-closed allergens, and separate exclusion results | Recipe queries, allergen enum/status, search DTOs, list/detail client | `AllergenSemanticsTests`, `SearchTests` |
-| AC6 | Real JWT validation, exact policies, public routes, authorization status codes, and scope configuration | AuthOptions, Policies, Program, endpoint policy mapping, Keycloak realm export, client auth | `SecurityTests` |
-| AC7 | Recipe events, transactional outbox, RabbitMQ UserDeleted consumer, idempotent inbox, and outcome record | Outbox, `ProcessedEvent`, `UserDeletionOutcome`, handler, consumer adapter, hosted service, dispatcher | `OutboxAndUserDeletedTests`, `UserDeletedHandlerTests` |
-| AC8 | React authorization-code + PKCE client, recipe editor, publication, listing, search, details, and user-friendly errors | `src/ChopChop.Client/src/recipes/*`, `App.tsx`, `auth.ts` | `RecipeScreens.test.tsx`, recipe `api.test.ts` |
-| AC9 | OpenAPI and documentation for contracts, policies, sign-in, versioning, allergens, failures, local setup, observability, and threat model | `Program.cs`, `docs/api-contracts.md`, `docs/recipe-management.md`, `docs/threat-model.md`, ADR, local guide | Documentation review plus OpenAPI endpoint metadata checks |
-| AC10 | Unit/integration edge-case coverage with SQL Server migrations and real JWT bearer validation | All test projects and support files | Entire Recipe Management unit/integration suites |
-| AC11 | Zero-error/warning build, tests, format, vulnerability checks, and limitation reporting | Project files, settings, local/evidence docs | Release build, test, format, package vulnerability, and client checks |
+| AC1 | API DTOs, application service, and recipe endpoints support draft CRUD, publish/unpublish, published list, and detail workflows | API DTOs, application service, endpoint mappings, and public/private route definitions | Endpoint tests |
+| AC2 | JWT bearer authentication, exact scope policies, public/protected endpoint mapping, Keycloak scopes, and client scope requests are configured | API authentication and policies, `infra/`, and `src/ChopChop.Client/src/auth.ts` | Five required authentication/authorization test cases |
+| AC3 | Domain behavior and architectural boundaries are covered by automated tests | Domain test suite and `Architecture/LayerRulesTests.cs` | Domain unit tests and architecture test |
+| AC4 | React supports create/edit, published list, detail, and publish/unpublish screens | `src/ChopChop.Client/src/recipes/*` and minimal `App.tsx` integration | Client screen tests |
+| AC5 | Documentation describes the authorization flow, token-validation settings, endpoint-to-policy mapping, and test results | Milestone 3 documentation and evidence files | Documentation review |
+| AC6 | Validation and code review are completed and reported | Validation results and code-review report | Repository validation checks and review report |
 
 ## Implementation commits
 
@@ -349,24 +347,12 @@ until Gate 1 is approved.
 
 | Step | Commit or review action | Agent |
 |---|---|---|
-| 1 | `#23 Add Recipe Management project shells and solution entries` — create the four service projects, two test projects, project references, and `Solution.sln` entries only. | `default Agent mode + r-piv skill` |
-| 2 | `#23 Implement Recipe Management domain model and invariants` — add Domain entities, enums, exceptions, validation, lifecycle, recipe-level allergens, and versioning. | `domain-dev` |
-| 3 | `#23 Add Recipe Management persistence abstractions and SQL Server model` — add `IRepository`, `EfRepository`, `IUnitOfWork`, repositories, `IdempotencyRecord`, `IdempotencyQueries`, DbContext, configurations, and registrations. | `data-persistence` |
-| 4 | `#23 Add initial Recipe Management migration` — generate, review, and add the service-owned migration and snapshot. | `data-persistence` |
-| 5 | `#23 Implement Recipe Management draft application workflows` — add DTOs, current-user boundary, create/list/get/update/delete behavior, ownership, idempotency, and concurrency mapping. | `api-services` |
-| 6 | `#23 Implement Recipe Management publication and search workflows` — add lifecycle commands, immutable versions, current/superseded public browsing, one filtered list route, pagination, allergen semantics, and equipment matching. | `api-services` |
-| 7a | `#23 Add Recipe Management API authentication, policies, endpoints, and middleware` — add API composition, JWT validation, exact scopes, rate limiting, limits, problem details, health, OpenAPI, and route metadata inside `src/RecipeManagement.Api`. | `api-services` |
-| 7b | `#23 Add Recipe Management Keycloak audience and scopes` — add the Recipe Management audience/client configuration and `recipes.read`, `recipes.write`, and `recipes.publish` scopes inside `infra/`. | `default Agent mode + r-piv skill` |
-| 7c | `#23 Request Recipe Management scopes from the React client` — update only `src/ChopChop.Client/src/auth.ts` for authorization-code + PKCE scope requests. | `frontend-dev` |
-| 8a | `#23 Add Recipe Management Data outbox inbox and RabbitMQ consumer adapter` — add Data-layer event persistence, inbox records, RabbitMQ subscription, retry, and dead-letter adapter inside `src/RecipeManagement.Data`. | `data-persistence` |
-| 8b | `#23 Add Recipe Management UserDeleted handler and hosted consumer` — add the API-layer handler, hosted service, dispatcher, anonymization, and outcome orchestration inside `src/RecipeManagement.Api`. | `api-services` |
-| 9 | `#23 Add Recipe Management domain and architecture tests` — add unit, boundary, lifecycle, validation, allergen, and application-service tests. | `testing` |
-| 10 | `#23 Add Recipe Management integration security and persistence tests` — add WebApplicationFactory, JWT signing helper, migrations, API contract, ownership, pagination, idempotency, concurrency, security, consumer, and event tests. | `testing` |
-| 11 | `#23 Add Recipe Management React screens and API client` — add the `recipes/` client folder, requested scopes, screens, validation, typed API calls, and minimal App integration. | `frontend-dev` |
-| 12 | `#23 Add Recipe Management client tests` — test API headers/errors, authentication gating, PKCE scope configuration, validation, search/list/detail, draft editing, and lifecycle actions inside `src/ChopChop.Client`. | `frontend-dev` |
-| 13 | `#23 Document Recipe Management contracts, threat model, and local operation` — update API contracts, ADR, service documentation, threat model, local setup, and evidence template inside `docs/`. | `default Agent mode + r-piv skill` |
-| 14a | `#23 Validate Recipe Management build tests format and package audit` — run the repository validation commands and record exact outcomes or environment limitations. | `default Agent mode + r-piv skill` |
-| 14b | Read-only review action: inspect the complete #23 diff, verify layer ownership, acceptance traceability, security, and failure-path coverage; produce the review report without editing implementation files. | `code-review` |
+| 5 | Api DTOs, application service and endpoints (draft CRUD, publish/unpublish, published list and detail) | `api-services` |
+| 6 | JWT bearer authentication, scope policies, public/protected endpoints, Keycloak scopes in `infra/`, scope request in `auth.ts` | `api-services` and `frontend-dev` |
+| 7 | Domain unit tests, architecture test, the five required authentication/authorization test cases, and endpoint tests | `testing` |
+| 8 | React screens for create/edit, list, detail, publish/unpublish | `frontend-dev` |
+| 9 | Documentation of the authorization flow, token-validation settings, endpoint-to-policy mapping, and test results | `default Agent mode + r-piv skill` |
+| 10 | Validation and code-review report | `default Agent mode + code-review` |
 
 ## Validation commands
 
