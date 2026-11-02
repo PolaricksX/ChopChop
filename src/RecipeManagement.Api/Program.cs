@@ -1,5 +1,8 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
 using RecipeManagement.Api.Contracts;
+using RecipeManagement.Api.Infrastructure;
 using RecipeManagement.Api.Services;
 using RecipeManagement.Data;
 using RecipeManagement.Data.Repositories;
@@ -12,12 +15,23 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddRecipeManagementData(builder.Configuration);
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<RecipeApplicationService>();
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("recipes.read", policy => policy.RequireAuthenticatedUser());
-    options.AddPolicy("recipes.write", policy => policy.RequireAuthenticatedUser());
-    options.AddPolicy("recipes.publish", policy => policy.RequireAuthenticatedUser());
-});
+builder.Services.AddOptions<AuthOptions>()
+    .BindConfiguration("Auth")
+    .Validate(AuthOptions.IsValid, "Auth:Authority (absolute URI) and Auth:Audience must be configured.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer();
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build())
+    .AddPolicy(Policies.RecipesRead, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.RecipesRead)))
+    .AddPolicy(Policies.RecipesWrite, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.RecipesWrite)))
+    .AddPolicy(Policies.RecipesPublish, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.RecipesPublish)));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 
@@ -40,6 +54,8 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     context.Response.ContentType = "application/problem+json";
     await context.Response.WriteAsJsonAsync(new { type = $"https://httpstatuses.com/{status}", title, status, detail }, cancellationToken: context.RequestAborted);
 }));
+app.UseAuthentication();
+app.UseAuthorization();
 
 var recipes = app.MapGroup("/api/v1/recipes");
 recipes.MapPost("", async (CreateRecipeRequest request, ICurrentUser user, RecipeApplicationService service, HttpContext http, CancellationToken ct) =>

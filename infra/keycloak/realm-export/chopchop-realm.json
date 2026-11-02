@@ -31,6 +31,12 @@
         "pkce.code.challenge.method": "S256",
         "access.token.lifespan": "300"
       },
+      "optionalClientScopes": [
+        "recipe-management-audience",
+        "recipes.read",
+        "recipes.write",
+        "recipes.publish"
+      ],
       "protocolMappers": [
         {
           "name": "ChopChop API audience",
@@ -58,6 +64,57 @@
           }
         }
       ]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "recipe-management-audience",
+      "description": "Audience for the Recipe Management API",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "Recipe Management API audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "recipe-management",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "recipes.read",
+      "description": "Read recipe data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "recipes.write",
+      "description": "Create and update recipe data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "recipes.publish",
+      "description": "Publish recipe data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
     }
   ],
   "users": []
