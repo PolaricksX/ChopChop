@@ -74,6 +74,8 @@ The Recipe Management integration tests cover these expected outcomes:
 - Published search currently loads the published filter fields in memory before applying the bounded search and filtering behavior.
 - Event publication and consumer integration, `UserDeleted` handling, idempotency, and rate limiting are out of scope for Milestone 3.
 - Local development uses configured public URLs and development-only infrastructure; production deployments must provide HTTPS and a secured configuration/secret store.
+- The isAiGenerated flag is set by the client (decision 10); it is not verified server-side.
+- Cross-owner tests cover draft retrieval only; command-level ownership and public draft-isolation tests are deferred.
 
 ## Validate
 

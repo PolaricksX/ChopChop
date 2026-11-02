@@ -7,6 +7,35 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
 {
     private readonly HttpClient client = factory.CreateClient();
 
+    public static IEnumerable<object[]> ProtectedRoutes =>
+    [
+        ["POST", "/api/v1/recipes"],
+        ["PUT", "/api/v1/recipes/00000000-0000-0000-0000-000000000001/draft"],
+        ["DELETE", "/api/v1/recipes/00000000-0000-0000-0000-000000000001/draft"],
+        ["POST", "/api/v1/recipes/00000000-0000-0000-0000-000000000001/publish"],
+        ["POST", "/api/v1/recipes/00000000-0000-0000-0000-000000000001/unpublish"],
+        ["GET", "/api/v1/recipes/drafts"],
+        ["GET", "/api/v1/recipes/00000000-0000-0000-0000-000000000001/draft"],
+    ];
+
+    private static object Body() => new
+    {
+        title = "Tomato soup",
+        description = "A simple recipe",
+        servings = 2,
+        ingredients = new[] { new { name = "Tomato", quantity = 2m, unit = "piece" } },
+        steps = new[] { new { order = 1, content = "Cook the tomato." } },
+    };
+
+    private async Task<HttpStatusCode> ProtectedRouteAsync(string method, string url, string? token)
+    {
+        var httpMethod = new HttpMethod(method);
+        object? body = method == "POST" && url == "/api/v1/recipes" || method == "PUT" ? Body() : null;
+        using var request = factory.Request(httpMethod, url, token, body);
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
+    }
+
     private async Task<HttpStatusCode> DraftsAsync(string? token)
     {
         using var request = factory.Request(HttpMethod.Get, "/api/v1/recipes/drafts", token);

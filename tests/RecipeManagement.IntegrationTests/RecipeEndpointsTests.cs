@@ -32,6 +32,23 @@ public sealed class RecipeEndpointsTests(ApiFactory factory) : IClassFixture<Api
         return await client.SendAsync(request);
     }
 
+    [Theory]
+    [InlineData("excludedAllergens=NotAnAllergen")]
+    [InlineData("sort=unsupported")]
+    [InlineData("tags=tag1,tag2,tag3,tag4,tag5,tag6,tag7,tag8,tag9,tag10,tag11,tag12,tag13,tag14,tag15,tag16,tag17,tag18,tag19,tag20,tag21,tag22,tag23,tag24,tag25,tag26,tag27,tag28,tag29,tag30,tag31,tag32,tag33,tag34,tag35,tag36,tag37,tag38,tag39,tag40,tag41,tag42,tag43,tag44,tag45,tag46,tag47,tag48,tag49,tag50,tag51")]
+    [InlineData("text=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+    public async Task Invalid_public_search_parameters_return_problem_details(string query)
+    {
+        using var response = await client.GetAsync($"{Recipes}?{query}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(400, problem.GetProperty("status").GetInt32());
+        Assert.Equal("Validation failed", problem.GetProperty("title").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(problem.GetProperty("detail").GetString()));
+    }
+
     [Fact]
     public async Task Public_list_and_detail_are_anonymous_and_have_public_shapes()
     {

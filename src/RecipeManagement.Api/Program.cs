@@ -82,16 +82,23 @@ recipes.MapGet("/{recipeId:guid}", async (Guid recipeId, RecipeApplicationServic
 recipes.MapGet("", async (HttpRequest request, RecipeApplicationService service, CancellationToken ct) =>
 {
     var query = request.Query;
-    var page = int.TryParse(query["page"], out var p) ? p : 1;
-    var pageSize = int.TryParse(query["pageSize"], out var ps) ? ps : 20;
-    RecipeRequestValidator.ValidatePage(page, pageSize);
-    var excluded = ParseEnumList<Allergen>(query["excludedAllergens"]);
-    var criteria = new RecipeSearchCriteria(query["text"], ParseList(query["tags"]), ParseList(query["dietaryLabels"]), int.TryParse(query["maxTotalMinutes"], out var max) ? max : null, int.TryParse(query["servings"], out var servings) ? servings : null, excluded, ParseList(query["availableEquipment"]), query["sort"].FirstOrDefault() ?? "updated", !string.Equals(query["direction"], "asc", StringComparison.OrdinalIgnoreCase), page, pageSize);
+    var page = RecipeRequestValidator.ParseSearchPage(query["page"].FirstOrDefault(), 1, "page");
+    var pageSize = RecipeRequestValidator.ParseSearchPage(query["pageSize"].FirstOrDefault(), 20, "pageSize");
+    var excluded = RecipeRequestValidator.ParseSearchEnumList<Allergen>(query["excludedAllergens"].FirstOrDefault(), "excludedAllergens");
+    var criteria = new RecipeSearchCriteria(
+        RecipeRequestValidator.ParseSearchText(query["text"].FirstOrDefault()),
+        RecipeRequestValidator.ParseSearchList(query["tags"].FirstOrDefault(), "tags"),
+        RecipeRequestValidator.ParseSearchList(query["dietaryLabels"].FirstOrDefault(), "dietaryLabels"),
+        RecipeRequestValidator.ParseOptionalSearchInt(query["maxTotalMinutes"].FirstOrDefault(), 0, RecipeRequestValidator.MaxSearchTotalMinutes, "maxTotalMinutes"),
+        RecipeRequestValidator.ParseOptionalSearchInt(query["servings"].FirstOrDefault(), 1, RecipeRequestValidator.MaxSearchServings, "servings"),
+        excluded,
+        RecipeRequestValidator.ParseSearchList(query["availableEquipment"].FirstOrDefault(), "availableEquipment"),
+        RecipeRequestValidator.ParseSearchSort(query["sort"].FirstOrDefault()),
+        RecipeRequestValidator.ParseSearchDirection(query["direction"].FirstOrDefault()),
+        page,
+        pageSize);
     return Results.Ok(await service.SearchAsync(criteria, ct));
 }).AllowAnonymous();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.Run();
-
-static IReadOnlyList<string>? ParseList(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-static IReadOnlyList<T>? ParseEnumList<T>(string? value) where T : struct, Enum => ParseList(value) is { } values && values.Count > 0 ? values.Select(x => Enum.Parse<T>(x, true)).ToArray() : null;

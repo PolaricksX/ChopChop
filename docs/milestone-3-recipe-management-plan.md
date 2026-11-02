@@ -164,7 +164,7 @@ metadata where filtering diagnostics are returned. Excessive filter complexity
 is a `400`, not a `413`.
 
 Create and update requests contain recipe content only. They cannot set recipe
-ID, author, lifecycle status, or version. Create requires `Idempotency-Key`.
+ID, author, lifecycle status, or version.
 Update carries the expected integer concurrency version. `PUT` creates the next
 draft version when the recipe is published and has no draft. It returns `409`
 when a draft already exists for a flow that does not permit replacement.

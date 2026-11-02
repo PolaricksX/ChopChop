@@ -4,6 +4,12 @@ namespace RecipeManagement.Api.Contracts;
 
 public static class RecipeRequestValidator
 {
+    public const int MaxSearchTextLength = 200;
+    public const int MaxSearchItems = 50;
+    public const int MaxSearchItemLength = 200;
+    public const int MaxSearchTotalMinutes = 1_440;
+    public const int MaxSearchServings = 100;
+
     public static void Validate(RecipeContentRequest request)
     {
         var errors = new List<string>();
@@ -25,6 +31,79 @@ public static class RecipeRequestValidator
     }
     public static void Validate(UpdateRecipeRequest request) { if (request is null || request.ExpectedVersion < 1) throw new RequestValidationException(["A positive expected version is required."]); Validate(request.Content); }
     public static void ValidatePage(int page, int pageSize) { if (page is < 1 or > 10_000 || pageSize is < 1 or > 100) throw new RequestValidationException(["Page must be 1..10000 and pageSize must be 1..100."]); }
+
+    public static int ParseSearchPage(string? value, int defaultValue, string parameterName)
+        => ParseSearchInt(value, defaultValue, 1, 10_000, parameterName);
+
+    public static int? ParseOptionalSearchInt(string? value, int minimum, int maximum, string parameterName)
+        => string.IsNullOrWhiteSpace(value) ? null : ParseSearchInt(value, null, minimum, maximum, parameterName);
+
+    public static IReadOnlyList<string>? ParseSearchList(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        var items = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (items.Length is 0 or > MaxSearchItems || items.Any(item => item.Length > MaxSearchItemLength || item.Length == 0))
+            throw new RequestValidationException([$"{parameterName} must contain at most {MaxSearchItems} items of at most {MaxSearchItemLength} characters each."]);
+
+        return items;
+    }
+
+    public static IReadOnlyList<T>? ParseSearchEnumList<T>(string? value, string parameterName) where T : struct, Enum
+    {
+        var values = ParseSearchList(value, parameterName);
+        if (values is null) return null;
+
+        var parsed = new T[values.Count];
+        for (var index = 0; index < values.Count; index++)
+        {
+            if (!Enum.TryParse<T>(values[index], ignoreCase: true, out var item) || !Enum.IsDefined(item))
+                throw new RequestValidationException([$"{parameterName} contains an invalid value: '{values[index]}'."]);
+            parsed[index] = item;
+        }
+
+        return parsed;
+    }
+
+    public static string? ParseSearchText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var text = value.Trim();
+        if (text.Length > MaxSearchTextLength)
+            throw new RequestValidationException([$"text must be at most {MaxSearchTextLength} characters."]);
+        return text;
+    }
+
+    public static string ParseSearchSort(string? value)
+    {
+        var sort = string.IsNullOrWhiteSpace(value) ? "updated" : value.Trim().ToLowerInvariant();
+        if (sort is not ("title" or "totalminutes" or "servings" or "publishedat" or "updated"))
+            throw new RequestValidationException(["sort must be one of: title, totalminutes, servings, publishedat, updated."]);
+        return sort;
+    }
+
+    public static bool ParseSearchDirection(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || string.Equals(value, "desc", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(value, "asc", StringComparison.OrdinalIgnoreCase)) return false;
+        throw new RequestValidationException(["direction must be either 'asc' or 'desc'."]);
+    }
+
+    private static int ParseSearchInt(string? value, int defaultValue, int minimum, int maximum, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return defaultValue;
+        if (!int.TryParse(value, out var parsed) || parsed < minimum || parsed > maximum)
+            throw new RequestValidationException([$"{parameterName} must be an integer from {minimum} to {maximum}."]);
+        return parsed;
+    }
+
+    private static int? ParseSearchInt(string? value, int? defaultValue, int minimum, int maximum, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return defaultValue;
+        if (!int.TryParse(value, out var parsed) || parsed < minimum || parsed > maximum)
+            throw new RequestValidationException([$"{parameterName} must be an integer from {minimum} to {maximum}."]);
+        return parsed;
+    }
 }
 
 public sealed class RequestValidationException(IReadOnlyList<string> errors) : Exception("The request is invalid.") { public IReadOnlyList<string> Errors { get; } = errors; }
