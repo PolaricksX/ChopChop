@@ -21,8 +21,11 @@ public sealed class TestJwt : IDisposable
         if (scope is not null) claims.Add(new Claim("scope", scope));
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
-            Issuer = issuer, Audience = audience, Subject = new ClaimsIdentity(claims),
-            NotBefore = expires.AddHours(-1), Expires = expires,
+            Issuer = issuer,
+            Audience = audience,
+            Subject = new ClaimsIdentity(claims),
+            NotBefore = expires.AddHours(-1),
+            Expires = expires,
             SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.RsaSha256),
         });
     }

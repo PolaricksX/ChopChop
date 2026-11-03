@@ -44,8 +44,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:ChopChop"] = ConnectionString,
-            ["Auth:Authority"] = TestJwt.Issuer, ["Auth:Audience"] = TestJwt.Audience,
-            ["Auth:RequireHttpsMetadata"] = "false", ["Client:Origins:0"] = "https://client.test",
+            ["Auth:Authority"] = TestJwt.Issuer,
+            ["Auth:Audience"] = TestJwt.Audience,
+            ["Auth:RequireHttpsMetadata"] = "false",
+            ["Client:Origins:0"] = "https://client.test",
         }));
         builder.ConfigureServices(services =>
         {
@@ -56,10 +58,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
             {
-            var configuration = new OpenIdConnectConfiguration { Issuer = TestJwt.Issuer };
-            configuration.SigningKeys.Add(Jwt.SigningKey);
-            options.Configuration = configuration;
-            options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+                var configuration = new OpenIdConnectConfiguration { Issuer = TestJwt.Issuer };
+                configuration.SigningKeys.Add(Jwt.SigningKey);
+                options.Configuration = configuration;
+                options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
             });
         });
     }

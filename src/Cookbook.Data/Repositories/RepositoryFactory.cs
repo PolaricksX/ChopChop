@@ -1,5 +1,5 @@
-using Microsoft.Extensions.DependencyInjection;
 using Cookbook.Data.Context;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Cookbook.Data.Repositories;
 
