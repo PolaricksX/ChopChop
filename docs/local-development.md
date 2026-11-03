@@ -93,6 +93,13 @@ $env:ConnectionStrings__Cookbook = $connection
 dotnet ef database update --project src\Cookbook.Data --startup-project src\Cookbook.Api --context CookbookDbContext
 ```
 
+Cookbook local development quick reference:
+
+- API URL: `http://localhost:20860`.
+- User secret key: `ConnectionStrings:ChopChop` on `src\Cookbook.Api`.
+- Migration override: set `ConnectionStrings__Cookbook` before running `dotnet ef database update` for `CookbookDbContext`.
+- Client API URL setting: `VITE_COOKBOOK_API_URL=http://localhost:20860` in `src\ChopChop.Client\.env.local`.
+
 ## 4. Start APIs and client
 
 Open separate PowerShell terminals from the repository root:

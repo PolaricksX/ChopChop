@@ -61,11 +61,12 @@ The Cookbook integration tests cover these expected outcomes:
 | Authenticated token with `cookbook.read` on read endpoints | `200 OK` |
 | Authenticated token with `cookbook.write` on write endpoints | `201 Created`/`204 No Content` |
 | Anonymous health access | `200 OK` |
+| Folder owned by another user is requested | `404 Not Found` |
 
 ### Current command results
 
-- `dotnet test`: **<total> total, <passed> passed, <failed> failed, <skipped> skipped**.
-- `npm test` from `src/ChopChop.Client`: **<total> total, <passed> passed, <failed> failed, <skipped> skipped**.
+- `dotnet test`: **192 total, 192 passed, 0 failed, 0 skipped**.
+- `npm test` from `src/ChopChop.Client`: **13 total, 13 passed, 0 failed, 0 skipped**.
 
 ## Known limitations and out-of-scope work
 
@@ -80,9 +81,10 @@ The Cookbook integration tests cover these expected outcomes:
 
 - Duplicate saved recipe entries would trigger a database error; fixed in Domain to prevent duplicate save per folder/recipe/version.
 - API startup failed when client origins were not configured; fixed by requiring explicit client origins configuration.
-- Manual testing found a connection string name mismatch; fixed to use the expected Cookbook connection string mapping.
+- Manual testing found a connection string name mismatch; fixed to use the shared `ConnectionStrings:ChopChop` name.
 - Form validation was blocked by the native `required` attribute behavior; fixed to align with intended client-side validation flow.
 - Saved recipe titles were not displayed in the client; fixed by populating and rendering saved recipe title data.
+- Cookbook integration tests conflicted with the Recipe Management test database when run in parallel; fixed by using an isolated Cookbook test database.
 
 ## Validate
 
