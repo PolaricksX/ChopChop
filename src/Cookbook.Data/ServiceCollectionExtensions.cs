@@ -14,8 +14,8 @@ public static class ServiceCollectionExtensions
     {
         services.AddDbContext<CookbookDbContext>(options =>
         {
-            var connectionString = configuration.GetConnectionString("Cookbook")
-                ?? throw new InvalidOperationException("ConnectionStrings:Cookbook is required.");
+            var connectionString = configuration.GetConnectionString("ChopChop")
+                ?? throw new InvalidOperationException("ConnectionStrings:ChopChop is required.");
             options.UseSqlServer(connectionString);
         });
         services.AddScoped<DbContext>(provider => provider.GetRequiredService<CookbookDbContext>());
