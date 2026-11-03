@@ -65,7 +65,7 @@ The Cookbook integration tests cover these expected outcomes:
 
 ### Current command results
 
-- `dotnet test`: **192 total, 192 passed, 0 failed, 0 skipped**.
+- `dotnet test`: **210 total, 210 passed, 0 failed, 0 skipped**.
 - `npm test` from `src/ChopChop.Client`: **13 total, 13 passed, 0 failed, 0 skipped**.
 
 ## Known limitations and out-of-scope work

@@ -111,10 +111,36 @@ public sealed class CookbookAuthenticationTests(ApiFactory factory) : IClassFixt
 {
     private readonly HttpClient client = factory.CreateClient();
     private const string Folders = "/api/v1/folders";
+    private const string CreateFolderRoute = "create-folder";
+    private const string ListFoldersRoute = "list-folders";
+    private const string DeleteFolderRoute = "delete-folder";
+    private const string SaveRecipeRoute = "save-recipe";
+    private const string ListSavedRecipesRoute = "list-saved-recipes";
+    private const string RemoveSavedRecipeRoute = "remove-saved-recipe";
 
     private async Task<HttpStatusCode> GetFoldersAsync(string? token)
     {
         using var request = factory.Request(HttpMethod.Get, Folders, token);
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
+    }
+
+    private async Task<HttpStatusCode> SendToRouteAsync(string route, string? token)
+    {
+        var folderId = Guid.NewGuid();
+        var recipeId = Guid.NewGuid();
+
+        using var request = route switch
+        {
+            CreateFolderRoute => factory.Request(HttpMethod.Post, Folders, token, new { name = "Favorites" }),
+            ListFoldersRoute => factory.Request(HttpMethod.Get, Folders, token),
+            DeleteFolderRoute => factory.Request(HttpMethod.Delete, $"{Folders}/{folderId}", token),
+            SaveRecipeRoute => factory.Request(HttpMethod.Post, $"{Folders}/{folderId}/saved-recipes", token, new { recipeId, recipeVersion = 1 }),
+            ListSavedRecipesRoute => factory.Request(HttpMethod.Get, $"{Folders}/{folderId}/saved-recipes", token),
+            RemoveSavedRecipeRoute => factory.Request(HttpMethod.Delete, $"{Folders}/{folderId}/saved-recipes/{recipeId}/1", token),
+            _ => throw new ArgumentOutOfRangeException(nameof(route), route, "Unknown protected route."),
+        };
+
         using var response = await client.SendAsync(request);
         return response.StatusCode;
     }
@@ -128,4 +154,47 @@ public sealed class CookbookAuthenticationTests(ApiFactory factory) : IClassFixt
     [Fact] public async Task Missing_scope_is_403() => Assert.Equal(HttpStatusCode.Forbidden, await GetFoldersAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), scope: null)));
     [Fact] public async Task Unrelated_scope_is_403() => Assert.Equal(HttpStatusCode.Forbidden, await GetFoldersAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "users.read")));
     [Fact] public async Task Required_scope_is_accepted() => Assert.Equal(HttpStatusCode.OK, await GetFoldersAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "cookbook.read")));
+
+    [Theory]
+    [InlineData(CreateFolderRoute)]
+    [InlineData(ListFoldersRoute)]
+    [InlineData(DeleteFolderRoute)]
+    [InlineData(SaveRecipeRoute)]
+    [InlineData(ListSavedRecipesRoute)]
+    [InlineData(RemoveSavedRecipeRoute)]
+    public async Task Every_protected_route_returns_401_without_token(string route) =>
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendToRouteAsync(route, null));
+
+    [Theory]
+    [InlineData(CreateFolderRoute)]
+    [InlineData(ListFoldersRoute)]
+    [InlineData(DeleteFolderRoute)]
+    [InlineData(SaveRecipeRoute)]
+    [InlineData(ListSavedRecipesRoute)]
+    [InlineData(RemoveSavedRecipeRoute)]
+    public async Task Every_protected_route_returns_403_for_unrelated_scope(string route)
+    {
+        var token = factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "users.read");
+        Assert.Equal(HttpStatusCode.Forbidden, await SendToRouteAsync(route, token));
+    }
+
+    [Theory]
+    [InlineData(CreateFolderRoute)]
+    [InlineData(DeleteFolderRoute)]
+    [InlineData(SaveRecipeRoute)]
+    [InlineData(RemoveSavedRecipeRoute)]
+    public async Task Write_routes_return_403_for_read_only_scope(string route)
+    {
+        var token = factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "cookbook.read");
+        Assert.Equal(HttpStatusCode.Forbidden, await SendToRouteAsync(route, token));
+    }
+
+    [Theory]
+    [InlineData(ListFoldersRoute)]
+    [InlineData(ListSavedRecipesRoute)]
+    public async Task Read_routes_return_403_for_write_only_scope(string route)
+    {
+        var token = factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "cookbook.write");
+        Assert.Equal(HttpStatusCode.Forbidden, await SendToRouteAsync(route, token));
+    }
 }
