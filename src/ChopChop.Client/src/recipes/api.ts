@@ -1,4 +1,4 @@
-import type { DraftRecipe, Page, PublishedRecipe, RecipeContent, RecipeSummary } from './types'
+import type { DraftRecipe, Page, PublishedRecipe, RecipeContent, RecipeSummary, RecipeVersion } from './types'
 import { userManager } from '../auth'
 
 export class RecipeApiError extends Error {
@@ -44,6 +44,7 @@ export function listRecipes(filters: { page?: number; pageSize?: number; text?: 
   return request<Page<RecipeSummary>>(`/api/v1/recipes?${query}`)
 }
 export const getPublishedRecipe = (id: string) => request<PublishedRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}`)
+export const getRecipeVersion = (id: string, version: number) => request<RecipeVersion>(`/api/v1/recipes/${encodeURIComponent(id)}/versions/${version}`)
 export const getDrafts = () => request<Page<DraftRecipe>>('/api/v1/recipes/drafts', {}, true)
 export const getDraft = (id: string) => request<DraftRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}/draft`, {}, true)
 export const createDraft = (content: RecipeContent) => request<DraftRecipe>('/api/v1/recipes', { method: 'POST', body: JSON.stringify(content) }, true)
