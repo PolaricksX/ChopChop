@@ -11,7 +11,7 @@ describe('RecipeEditor', () => {
   })
   it('shows client validation errors in the editor', () => {
     vi.stubGlobal('fetch', vi.fn())
-    render(<RecipeEditor accessToken="token" />)
+    render(<RecipeEditor />)
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
     expect(screen.getByRole('alert').textContent).toContain('Title is required.')
   })

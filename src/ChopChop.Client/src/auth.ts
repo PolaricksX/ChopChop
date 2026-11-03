@@ -7,5 +7,10 @@ export const userManager = new UserManager({
   post_logout_redirect_uri: window.location.origin,
   response_type: 'code',
   scope: 'openid profile email recipes.read recipes.write recipes.publish',
+  automaticSilentRenew: true,
   userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+})
+
+userManager.events.addSilentRenewError((error) => {
+  console.error('OIDC silent token renewal failed.', error)
 })

@@ -18,12 +18,15 @@ import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 
-type Panel = 'recipe' | 'review' | 'moderation'
+type Panel = 'recipe' | 'recipes' | 'review' | 'moderation'
+type RecipeView = 'browse' | 'drafts' | 'new' | 'details' | 'edit'
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
   const [activePanel, setActivePanel] = useState<Panel>('recipe')
+  const [recipeView, setRecipeView] = useState<RecipeView>('browse')
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
   const [generation, setGeneration] = useState<Generation | null>(null)
   const [prompt, setPrompt] = useState('')
   const [includePantry, setIncludePantry] = useState(false)
@@ -40,6 +43,22 @@ function App() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
+    const handleUserLoaded = (loadedUser: User) => setUser(loadedUser)
+    const handleUserUnloaded = () => setUser(null)
+    const handleAccessTokenExpired = () => {
+      void userManager.getUser()
+        .then((currentUser) => setUser(currentUser?.expired ? null : currentUser))
+        .catch(() => setUser(null))
+    }
+    userManager.events.addUserLoaded(handleUserLoaded)
+    userManager.events.addUserUnloaded(handleUserUnloaded)
+    userManager.events.addAccessTokenExpired(handleAccessTokenExpired)
+    const cleanup = () => {
+      userManager.events.removeUserLoaded(handleUserLoaded)
+      userManager.events.removeUserUnloaded(handleUserUnloaded)
+      userManager.events.removeAccessTokenExpired(handleAccessTokenExpired)
+    }
+
     if (window.location.pathname === '/auth/callback') {
       userManager.signinRedirectCallback()
         .then(() => window.location.replace('/'))
@@ -47,13 +66,14 @@ function App() {
           setError(errorMessage(callbackError))
           setAuthReady(true)
         })
-      return
+      return cleanup
     }
 
     userManager.getUser()
       .then(setUser)
       .catch((authError: unknown) => setError(errorMessage(authError)))
       .finally(() => setAuthReady(true))
+    return cleanup
   }, [])
 
   const generationId = generation?.id
@@ -195,12 +215,6 @@ function App() {
     return <main className="shell"><p role="status">Loading your secure session…</p></main>
   }
 
-  const path = window.location.pathname
-  const recipeMatch = path.match(/^\/recipes\/([^/]+)$/)
-  const editMatch = path.match(/^\/recipes\/([^/]+)\/edit$/)
-  if (path === '/recipes' || path === '/recipes/') return <main className="shell"><RecipeList /></main>
-  if (recipeMatch) return <main className="shell"><RecipeDetails recipeId={recipeMatch[1]} /></main>
-
   if (!user) {
     return (
       <main className="shell auth-shell">
@@ -212,10 +226,6 @@ function App() {
         <p className="small-note">Secure sign-in uses your organization's OpenID Connect provider.</p>
       </main>
     )
-  }
-
-  if (path === '/drafts' || path === '/recipes/new' || editMatch) {
-    return <main className="shell"><header className="topbar"><a className="brand" href="/">chop<span>chop</span></a><button className="quiet" onClick={signOut}>Sign out</button></header>{path === '/drafts' ? <RecipeDrafts accessToken={user.access_token} /> : <RecipeEditor accessToken={user.access_token} recipeId={editMatch?.[1]} />}</main>
   }
 
   return (
@@ -236,12 +246,34 @@ function App() {
 
       <nav className="tabs" aria-label="Cookbook tools">
         <button className={activePanel === 'recipe' ? 'tab active' : 'tab'} onClick={() => setActivePanel('recipe')}>AI recipe</button>
+        <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
 
       {error && <p role="alert" className="message error">{error}</p>}
       {notice && <p role="status" className="message success">{notice}</p>}
+
+      {activePanel === 'recipes' && (
+        <section className="panel" aria-labelledby="recipes-heading">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">YOUR COOKBOOK</p>
+              <h2 id="recipes-heading">Recipe Management</h2>
+            </div>
+          </div>
+          <nav className="tabs" aria-label="Recipe management">
+            <button className={recipeView === 'browse' || recipeView === 'details' ? 'tab active' : 'tab'} onClick={() => { setRecipeView('browse'); setSelectedRecipeId(null) }}>Browse</button>
+            <button className={recipeView === 'drafts' || recipeView === 'edit' ? 'tab active' : 'tab'} onClick={() => { setRecipeView('drafts'); setSelectedRecipeId(null) }}>My drafts</button>
+            <button className={recipeView === 'new' ? 'tab active' : 'tab'} onClick={() => { setRecipeView('new'); setSelectedRecipeId(null) }}>New recipe</button>
+          </nav>
+          {recipeView === 'browse' && <RecipeList onSelect={(id) => { setSelectedRecipeId(id); setRecipeView('details') }} />}
+          {recipeView === 'details' && selectedRecipeId && <RecipeDetails recipeId={selectedRecipeId} onBack={() => { setSelectedRecipeId(null); setRecipeView('browse') }} />}
+          {recipeView === 'drafts' && <RecipeDrafts onEdit={(id) => { setSelectedRecipeId(id); setRecipeView('edit') }} />}
+          {recipeView === 'new' && <RecipeEditor onBack={() => setRecipeView('browse')} />}
+          {recipeView === 'edit' && selectedRecipeId && <RecipeEditor recipeId={selectedRecipeId} onBack={() => { setSelectedRecipeId(null); setRecipeView('drafts') }} />}
+        </section>
+      )}
 
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">
