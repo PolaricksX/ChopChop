@@ -26,8 +26,8 @@ export function CookbookTab() {
     try {
       const recipes = await listSavedRecipes(folder.id)
       const displayed = await Promise.all(recipes.map(async (recipe) => {
-        try { return { ...recipe, title: (await getRecipeVersion(recipe.recipeId, recipe.recipeVersion)).title } }
-        catch { return { ...recipe, title: `${recipe.recipeId} (version ${recipe.recipeVersion})` } }
+        try { return { ...recipe, title: (await getRecipeVersion(recipe.recipeId, recipe.recipeVersion)).version.title } }
+        catch { return { ...recipe, title: `Recipe ${recipe.recipeId} (version ${recipe.recipeVersion})` } }
       }))
       setSaved(displayed)
     } catch (e) { setError(e instanceof CookbookApiError ? e.message : 'Saved recipes could not be loaded.') }

@@ -9,6 +9,7 @@ vi.mock('../recipes/api', () => ({ getRecipeVersion: vi.fn() }))
 
 describe('CookbookTab', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(api.listFolders).mockResolvedValue([])
     vi.mocked(api.createFolder).mockResolvedValue({ id: 'new', name: 'Dinner', createdAtUtc: '' })
   })
@@ -23,16 +24,26 @@ describe('CookbookTab', () => {
     await waitFor(() => expect(api.createFolder).toHaveBeenCalledWith('Dinner'))
   })
 
-  it('loads recipe titles and falls back to the public identifiers', async () => {
+  it('shows the recipe title when the lookup succeeds', async () => {
     vi.mocked(api.listFolders).mockResolvedValue([{ id: 'folder', name: 'Favorites', createdAtUtc: '' }])
     vi.mocked(api.listSavedRecipes).mockResolvedValue([
       { folderId: 'folder', recipeId: 'known', recipeVersion: 2, savedAtUtc: '' },
-      { folderId: 'folder', recipeId: 'missing', recipeVersion: 3, savedAtUtc: '' },
     ])
-    vi.mocked(getRecipeVersion).mockImplementation(async (id) => { if (id === 'missing') throw new Error('not found'); return { title: 'Pasta' } as never })
+    vi.mocked(getRecipeVersion).mockResolvedValue({ version: { title: 'Pasta' } } as never)
     render(<CookbookTab />)
     fireEvent.click(await screen.findByRole('button', { name: 'Favorites' }))
     expect(await screen.findByText('Pasta')).toBeTruthy()
-    expect(await screen.findByText('missing (version 3)')).toBeTruthy()
+  })
+
+  it('shows the recipe ID and version when the lookup fails', async () => {
+    vi.mocked(api.listFolders).mockResolvedValue([{ id: 'folder', name: 'Favorites', createdAtUtc: '' }])
+    vi.mocked(api.listSavedRecipes).mockResolvedValue([
+      { folderId: 'folder', recipeId: 'missing', recipeVersion: 3, savedAtUtc: '' },
+    ])
+    vi.mocked(getRecipeVersion).mockRejectedValue(new Error('not found'))
+    render(<CookbookTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Favorites' }))
+    expect(await screen.findByText('Recipe missing (version 3)')).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })
