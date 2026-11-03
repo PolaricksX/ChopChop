@@ -13,6 +13,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddRecipeManagementData(builder.Configuration);
+builder.Services.AddCors(options =>
+{
+    var clientOrigins = builder.Configuration.GetSection("Client:Origins").GetChildren()
+        .Select(section => section.Value)
+        .Where(origin => origin is not null && !string.IsNullOrWhiteSpace(origin))
+        .Select(origin => origin!)
+        .ToArray();
+
+    if (clientOrigins.Length == 0 || clientOrigins.Any(string.IsNullOrWhiteSpace))
+        throw new InvalidOperationException("Client:Origins must contain at least one origin.");
+
+    options.AddPolicy("recipe-management-client", policy => policy
+        .WithOrigins(clientOrigins)
+        .WithHeaders("Authorization", "Content-Type", "X-Correlation-Id")
+        .WithMethods("GET", "POST", "PUT", "DELETE"));
+});
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<RecipeApplicationService>();
 builder.Services.AddOptions<AuthOptions>()
@@ -54,6 +70,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     context.Response.ContentType = "application/problem+json";
     await context.Response.WriteAsJsonAsync(new { type = $"https://httpstatuses.com/{status}", title, status, detail }, cancellationToken: context.RequestAborted);
 }));
+app.UseCors("recipe-management-client");
 app.UseAuthentication();
 app.UseAuthorization();
 
