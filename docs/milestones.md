@@ -5,6 +5,7 @@ The current assigned work is:
 - [#18 — AI Recipe Generation](https://github.com/PolaricksX/ChopChop/issues/18)
 - [#19 — Interactive Review](https://github.com/PolaricksX/ChopChop/issues/19)
 - [#23 — Recipe Management](https://github.com/PolaricksX/ChopChop/issues/23)
+- [#32 — Cookbook](https://github.com/PolaricksX/ChopChop/issues/32)
 
 Each assignment is limited to its own independently runnable services and
 their shared client/infrastructure support. Other service ownership remains
