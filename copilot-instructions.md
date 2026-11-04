@@ -26,7 +26,7 @@ advice.
 
 **Current milestone: 3 (Layered Service Development).** Scope and deliverables
 live in `docs/milestones.md`. The assigned work is AI Recipe Generation and
-Interactive Review (#18 and #19) and Recipe Management (#23). Each assignment is
+Interactive Review (#18 and #19) and Recipe Management (#23), and Cookbook (#32). Each assignment is
 owned by one team member: implement only the service named in the issue you are
 working on (the issue number is in the current branch name and the request), plus
 its approved client/infrastructure/documentation work. Do not implement or modify

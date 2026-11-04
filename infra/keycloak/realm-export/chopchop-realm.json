@@ -38,11 +38,14 @@
         "web-origins",
         "acr",
         "basic",
+        "cookbook-audience",
         "recipe-management-audience"
       ],
       "optionalClientScopes": [
         "recipes.read",
         "recipes.write",
+        "cookbook.read",
+        "cookbook.write",
         "recipes.publish"
       ],
       "protocolMappers": [
@@ -485,6 +488,46 @@
     {
       "name": "recipes.publish",
       "description": "Publish recipe data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "cookbook-audience",
+      "description": "Audience for the Cookbook API",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "Cookbook API audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "cookbook",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "cookbook.read",
+      "description": "Read cookbook data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "cookbook.write",
+      "description": "Create and update cookbook data",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",

@@ -1,7 +1,8 @@
 # Local Development
 
-This guide runs the assigned AI Recipe Generation and Interactive Review
-services with a local SQL Server, RabbitMQ, Keycloak realm, and React client.
+This guide runs the assigned AI Recipe Generation, Interactive Review, Recipe
+Management, and Cookbook services with a local SQL Server, RabbitMQ, Keycloak
+realm, and React client.
 Do not use the development settings or credentials in a shared or production
 environment.
 
@@ -26,8 +27,8 @@ environment.
 ## 2. Configure local secrets
 
 Set `ASPNETCORE_ENVIRONMENT=Development` in the shell that runs .NET commands.
-Add the same SQL connection string and RabbitMQ URI as user secrets to both
-API projects. Replace the bracketed values locally; do not commit them:
+Add the same SQL connection string and RabbitMQ URI as user secrets to the
+API projects below. Replace the bracketed values locally; do not commit them:
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Development"
@@ -39,6 +40,7 @@ dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\AiRec
 dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\InteractiveReview.Api
 dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\InteractiveReview.Api
 dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\RecipeManagement.Api
+dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\Cookbook.Api
 ```
 
 For AI generation, also configure the Azure OpenAI v1 endpoint, deployment
@@ -79,6 +81,25 @@ any credentials. Apply its migration from the repository root:
 dotnet ef database update --project src\RecipeManagement.Data --startup-project src\RecipeManagement.Api --context RecipeManagementDbContext
 ```
 
+### Cookbook
+
+Cookbook owns the `cookbook` schema in the shared `ChopChop` database. Configure
+`ConnectionStrings:ChopChop` through local user secrets for `src\Cookbook.Api`;
+do not commit the connection string or any credentials. Apply its migration
+from the repository root using the design-time override:
+
+```powershell
+$env:ConnectionStrings__Cookbook = $connection
+dotnet ef database update --project src\Cookbook.Data --startup-project src\Cookbook.Api --context CookbookDbContext
+```
+
+Cookbook local development quick reference:
+
+- API URL: `http://localhost:20860`.
+- User secret key: `ConnectionStrings:ChopChop` on `src\Cookbook.Api`.
+- Migration override: set `ConnectionStrings__Cookbook` before running `dotnet ef database update` for `CookbookDbContext`.
+- Client API URL setting: `VITE_COOKBOOK_API_URL=http://localhost:20860` in `src\ChopChop.Client\.env.local`.
+
 ## 4. Start APIs and client
 
 Open separate PowerShell terminals from the repository root:
@@ -93,6 +114,10 @@ dotnet run --project src\InteractiveReview.Api --launch-profile InteractiveRevie
 
 ```powershell
 dotnet run --project src\RecipeManagement.Api --launch-profile RecipeManagement.Api
+```
+
+```powershell
+dotnet run --project src\Cookbook.Api --launch-profile Cookbook.Api
 ```
 
 In another terminal:
@@ -117,12 +142,19 @@ Available endpoints:
 - Recipe Management API: `http://localhost:20858` (HTTPS:
   `https://localhost:20857`); OpenAPI document at `/openapi/v1.json`; health at
   `/health`.
+- Cookbook API: `http://localhost:20860`; OpenAPI document at
+  `/openapi/v1.json`; health at `/health`.
 - Keycloak: `http://localhost:8080/realms/chopchop`.
 
 The client uses `VITE_RECIPE_MANAGEMENT_API_URL` for the Recipe Management API
 base URL. Set `VITE_RECIPE_MANAGEMENT_API_URL=http://localhost:20858` (or the
 HTTPS URL above) in `src\ChopChop.Client\.env.local`; this is a public URL and
 must not contain a client secret.
+
+The client uses `VITE_COOKBOOK_API_URL` for the Cookbook API base URL. Set
+`VITE_COOKBOOK_API_URL=http://localhost:20860` in
+`src\ChopChop.Client\.env.local`; this is a public URL and must not contain a
+client secret.
 
 The APIs validate signed bearer tokens against Keycloak issuer and audience.
 The moderation policy expects the realm role as a `role` access-token claim.
