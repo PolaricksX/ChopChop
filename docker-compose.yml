@@ -1,0 +1,42 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}
+    ports:
+      - "1433:1433"
+    volumes:
+      - chopchop-sql-data:/var/opt/mssql
+
+  rabbitmq:
+    image: rabbitmq:4.1-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?Set RABBITMQ_DEFAULT_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?Set RABBITMQ_DEFAULT_PASS in .env}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - chopchop-rabbit-data:/var/lib/rabbitmq
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.2
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?Set KEYCLOAK_ADMIN_USERNAME in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infra/keycloak/realm-export:/opt/keycloak/data/import:ro
+    depends_on:
+      - sqlserver
+
+volumes:
+  chopchop-sql-data:
+  chopchop-rabbit-data:

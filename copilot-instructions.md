@@ -24,9 +24,14 @@ advice.
 
 ## Current Milestone
 
-**Current milestone: 1 (SOA Foundation).** Scope and deliverables for every
-milestone live in `docs/milestones.md`. Build what the current milestone
-requires and nothing ahead of it. Validation, authorization structure, error
+**Current milestone: 3 (Layered Service Development).** Scope and deliverables
+live in `docs/milestones.md`. The assigned work is AI Recipe Generation and
+Interactive Review (#18 and #19) and Recipe Management (#23). Each assignment is
+owned by one team member: implement only the service named in the issue you are
+working on (the issue number is in the current branch name and the request), plus
+its approved client/infrastructure/documentation work. Do not implement or modify
+services that belong to another assignment. Keep each service independently
+runnable and preserve ownership boundaries. Validation, authorization, error
 handling, and logging apply in every milestone.
 
 ## Technical Baseline
@@ -105,14 +110,15 @@ introducing an alternative.
 
 ## Structure
 
-- The repository root is `Solution/` and contains `Solution.sln`, `src/`,
-  `tests/`, and `docs/`. `src/` holds service projects and the client;
-  `tests/` holds service tests; `docs/` holds ADRs, contracts, diagrams, the
-  threat model, setup steps, and milestone evidence.
+- The application solution root is the repository root and contains
+  `Solution.sln`, `src/`, `tests/`, and `docs/`, alongside the milestone
+  process assets and existing diagrams. `src/` holds service projects and the
+  client; `tests/` holds service tests; `docs/` holds ADRs, contracts, the
+  threat model, setup steps, and implementation evidence.
 - Each service uses this project and folder layout:
 
   ```text
-  Solution/
+  (repository root)
   |-- Solution.sln
   |-- src/
   |   |-- ServiceName.Domain/
