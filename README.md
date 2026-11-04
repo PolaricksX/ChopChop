@@ -6,23 +6,23 @@
 
 - `.github/skills/r-piv-skill.md` — R-PIV skill definition used for project work.
 - `.github/agents/` — reusable R-PIV-based agent instructions by layer:
-  - `r-piv-general-agent.md`
-  - `frontend-agent.md`
-  - `api-services-agent.md`
-  - `data-access-agent.md`
+    - `r-piv-general-agent.md`
+    - `frontend-agent.md`
+    - `api-services-agent.md`
+    - `data-access-agent.md`
 - `docs/` — documentation assets for milestone evidence and service contracts:
-  - `KitchenHelperMultiDB_Update.drawio`
-  - `Services Diagram.png`
-  - `reflection.md`
-  - `user-service.md` — User Service contract, configuration and limitations
-  - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
-- `src/` — `UserService.*` and `MealPlanner.*` Domain/Data/Api projects; the
-  React browser client is in `src/MealPlanner.Client`
+    - `KitchenHelperMultiDB_Update.drawio`
+    - `Services Diagram.png`
+    - `reflection.md`
+    - `user-service.md` — User Service contract, configuration and limitations
+    - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
+- `src/` — `UserService.*` and `MealPlanner.*` Domain/Data/Api projects
 - `tests/` — unit and SQL Server integration tests for both services
 - `compose.yaml` — local SQL Server and RabbitMQ dependencies; set required credentials through environment variables
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`
 
 Services use the shared `ConnectionStrings:ChopChop` database connection and own separate tables.
 
-See the [Meal Planning client guide](docs/meal-planning-client.md) for client
-setup, authentication, and API behavior.
+The React browser client is in `src/MealPlanner.Client`. See the
+[Meal Planning client guide](docs/meal-planning-client.md) for setup,
+authentication, and API behavior.
