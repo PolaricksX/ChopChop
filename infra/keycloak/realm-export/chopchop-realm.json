@@ -1,0 +1,64 @@
+{
+  "realm": "chopchop",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "review-moderator",
+        "description": "May approve, reject, or hide community reviews"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "chopchop-web",
+      "name": "ChopChop browser client",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "300"
+      },
+      "protocolMappers": [
+        {
+          "name": "ChopChop API audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "chopchop-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "Realm roles as role claims",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "role",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": []
+}
