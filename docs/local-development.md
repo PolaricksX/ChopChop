@@ -38,6 +38,7 @@ dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\A
 dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\AiRecipeGeneration.Api
 dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\InteractiveReview.Api
 dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\InteractiveReview.Api
+dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\RecipeManagement.Api
 ```
 
 For AI generation, also configure the Azure OpenAI v1 endpoint, deployment
@@ -67,6 +68,17 @@ dotnet ef database update --project src\InteractiveReview.Data --startup-project
 The AI service uses schema `ai_recipe`; the review service uses
 `interactive_review`. Do not modify the other service's tables.
 
+### Recipe Management
+
+Recipe Management owns the `recipe_management` schema in the shared
+`ChopChop` database. Configure `ConnectionStrings:ChopChop` through local user
+secrets for `src\RecipeManagement.Api`; do not commit the connection string or
+any credentials. Apply its migration from the repository root:
+
+```powershell
+dotnet ef database update --project src\RecipeManagement.Data --startup-project src\RecipeManagement.Api --context RecipeManagementDbContext
+```
+
 ## 4. Start APIs and client
 
 Open separate PowerShell terminals from the repository root:
@@ -77,6 +89,10 @@ dotnet run --project src\AiRecipeGeneration.Api --launch-profile AiRecipeGenerat
 
 ```powershell
 dotnet run --project src\InteractiveReview.Api --launch-profile InteractiveReview.Api
+```
+
+```powershell
+dotnet run --project src\RecipeManagement.Api --launch-profile RecipeManagement.Api
 ```
 
 In another terminal:
@@ -98,7 +114,15 @@ Available endpoints:
   `/openapi/v1.json`; health at `/health`.
 - Interactive Review API: `http://localhost:5082`; OpenAPI document at
   `/openapi/v1.json`; health at `/health`.
+- Recipe Management API: `http://localhost:20858` (HTTPS:
+  `https://localhost:20857`); OpenAPI document at `/openapi/v1.json`; health at
+  `/health`.
 - Keycloak: `http://localhost:8080/realms/chopchop`.
+
+The client uses `VITE_RECIPE_MANAGEMENT_API_URL` for the Recipe Management API
+base URL. Set `VITE_RECIPE_MANAGEMENT_API_URL=http://localhost:20858` (or the
+HTTPS URL above) in `src\ChopChop.Client\.env.local`; this is a public URL and
+must not contain a client secret.
 
 The APIs validate signed bearer tokens against Keycloak issuer and audience.
 The moderation policy expects the realm role as a `role` access-token claim.

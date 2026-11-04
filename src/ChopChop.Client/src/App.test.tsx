@@ -9,6 +9,14 @@ vi.mock('./auth', () => ({
     signinRedirect: vi.fn(),
     signinRedirectCallback: vi.fn(),
     signoutRedirect: vi.fn(),
+    events: {
+      addUserLoaded: vi.fn(),
+      removeUserLoaded: vi.fn(),
+      addUserUnloaded: vi.fn(),
+      removeUserUnloaded: vi.fn(),
+      addAccessTokenExpired: vi.fn(),
+      removeAccessTokenExpired: vi.fn(),
+    },
   },
 }))
 
