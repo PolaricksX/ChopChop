@@ -23,12 +23,17 @@
   - `frontend-agent.md`
   - `api-services-agent.md`
   - `data-access-agent.md`
-- `docs/` — documentation assets for milestone evidence:
+- `docs/` — documentation assets for milestone evidence and service contracts:
   - `KitchenHelperMultiDB_Update.drawio`
   - `Services Diagram.png`
   - `reflection.md`
   - `user-service.md` — User Service contract, configuration and limitations
-- `src/` — `UserService.*`, `AiRecipeGeneration.*`, `InteractiveReview.*`
-  (Domain, Data, Api), `ChopChop.Shared`, and `ChopChop.Client` (React)
+  - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
+- `src/` — `UserService.*`, `MealPlanner.*`, `AiRecipeGeneration.*`,
+  `InteractiveReview.*`, and `RecipeManagement.*` services, plus
+  `ChopChop.Shared` and `ChopChop.Client` (React)
 - `tests/` — unit and integration tests for each service
+- `compose.yaml` — local SQL Server and RabbitMQ dependencies; set required credentials through environment variables
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`
+
+Services use the shared `ConnectionStrings:ChopChop` database connection and own separate tables.

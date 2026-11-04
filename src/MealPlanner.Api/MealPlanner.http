@@ -1,0 +1,102 @@
+@baseUrl = http://localhost:5033
+@token = replace-with-a-valid-access-token
+@planId = replace-with-plan-guid
+@entryId = replace-with-meal-guid
+@planVersion = replace-with-version
+@mealVersion = replace-with-version
+@idempotencyKey = meal-plan-create-1
+
+### Create a plan
+POST {{baseUrl}}/api/v1/meal-plans
+Authorization: Bearer {{token}}
+Idempotency-Key: {{idempotencyKey}}
+Content-Type: application/json
+
+{
+  "name": "Week of November 1",
+  "startDate": "2026-11-01",
+  "endDate": "2026-11-07"
+}
+
+### List plans
+GET {{baseUrl}}/api/v1/meal-plans?page=1&pageSize=20
+Authorization: Bearer {{token}}
+
+### Get a plan
+GET {{baseUrl}}/api/v1/meal-plans/{{planId}}
+Authorization: Bearer {{token}}
+
+### Update a plan
+PUT {{baseUrl}}/api/v1/meal-plans/{{planId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Updated week",
+  "startDate": "2026-11-01",
+  "endDate": "2026-11-07",
+  "version": "{{planVersion}}"
+}
+
+### Change plan status
+PATCH {{baseUrl}}/api/v1/meal-plans/{{planId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "Active",
+  "version": "{{planVersion}}"
+}
+
+### List meals
+GET {{baseUrl}}/api/v1/meal-plans/{{planId}}/meals?page=1&pageSize=20&date=2026-11-01
+Authorization: Bearer {{token}}
+
+### Add a meal
+POST {{baseUrl}}/api/v1/meal-plans/{{planId}}/meals
+Authorization: Bearer {{token}}
+Idempotency-Key: meal-entry-create-1
+Content-Type: application/json
+
+{
+  "date": "2026-11-01",
+  "slot": "Breakfast",
+  "title": "Overnight oats",
+  "recipeId": null,
+  "servings": 2,
+  "version": "{{planVersion}}"
+}
+
+### Update a meal
+PUT {{baseUrl}}/api/v1/meal-plans/{{planId}}/meals/{{entryId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "date": "2026-11-01",
+  "slot": "Breakfast",
+  "title": "Berry overnight oats",
+  "recipeId": null,
+  "servings": 2,
+  "version": "{{mealVersion}}"
+}
+
+### Record meal progress
+PATCH {{baseUrl}}/api/v1/meal-plans/{{planId}}/meals/{{entryId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "Completed",
+  "version": "{{mealVersion}}"
+}
+
+### Remove a meal (If-Match is the quoted ETag from the latest response)
+DELETE {{baseUrl}}/api/v1/meal-plans/{{planId}}/meals/{{entryId}}
+Authorization: Bearer {{token}}
+If-Match: "{{mealVersion}}"
+
+### Delete a plan
+DELETE {{baseUrl}}/api/v1/meal-plans/{{planId}}
+Authorization: Bearer {{token}}
+If-Match: "{{planVersion}}"
