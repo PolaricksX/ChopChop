@@ -14,6 +14,8 @@
   [docs/local-development.md](docs/local-development.md) and
   [docs/api-contracts.md](docs/api-contracts.md). The .NET solution and React
   client live under `src/` (client: `src/ChopChop.Client`).
+  Pantry is in `src/Pantry.*`, with tests in `tests/Pantry.Tests`; see
+  [docs/pantry.md](docs/pantry.md).
 
 ## Repository structure
 
@@ -31,7 +33,7 @@
   - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
 - `src/` — `UserService.*`, `MealPlanner.*`, `AiRecipeGeneration.*`,
   `InteractiveReview.*`, and `RecipeManagement.*` services, plus
-  `ChopChop.Shared`, `ChopChop.Client`, and `MealPlanner.Client` (React)
+  `Pantry.*`, `ChopChop.Shared`, `ChopChop.Client`, and `MealPlanner.Client` (React)
 - `tests/` — unit and integration tests for each service
 - `compose.yaml` — local SQL Server and RabbitMQ dependencies; set required credentials through environment variables
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`
