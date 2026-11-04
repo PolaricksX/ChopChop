@@ -16,18 +16,23 @@
 
 ## Authorization flow
 
-The browser client (`ChopChop.Client`) acts on behalf of the resource owner (the user). The user authenticates with the authorization server (Keycloak) using the OAuth 2.0 authorization-code flow with PKCE. After sign-in, the client sends the resulting bearer access token to the resource server (`RecipeManagement.Api`) for protected draft and command endpoints. Published recipe list, search, version, and detail routes are anonymous.
+The browser client (`ChopChop.Client`) acts on behalf of the resource owner
+(the user) using Auth0 authorization-code flow with PKCE. It obtains a token
+for the Recipe Management API audience and requests `recipes.read`,
+`recipes.write`, and `recipes.publish` as needed. The API validates the token
+as an independent resource server. Published recipe list, search, version,
+and detail routes are anonymous.
 
 ## Token validation
 
 Recipe Management reads the following configuration keys; values, credentials, and signing secrets are not documented here:
 
-- `Auth:Authority` — the Keycloak issuer/authority URL.
+- `Auth:Authority` — the configured OIDC issuer/authority URL.
 - `Auth:Audience` — the expected API audience.
 - `Auth:RequireHttpsMetadata` — whether the authority metadata must use HTTPS.
 - `Auth:ValidAlgorithms` — the allowlisted signing algorithms.
 
-The API validates the JWT signature and signing key, issuer, audience, lifetime and required expiration time. Signed tokens are required, and only configured signing algorithms are accepted. The API also requires the appropriate space-delimited `scope` or `scp` claim for each protected policy. Authentication failures return `401`; an authenticated token missing the required scope returns `403`.
+The API validates the JWT signature and signing key, issuer, audience, lifetime and required expiration time. Signed tokens are required, and only configured signing algorithms are accepted. The API also requires the appropriate `scope`, `scp`, or Auth0 `permissions` claim for each protected policy. Authentication failures return `401`; an authenticated token missing the required permission returns `403`.
 
 ## Endpoint-to-policy mapping
 

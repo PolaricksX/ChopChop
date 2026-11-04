@@ -4,7 +4,8 @@
 
 - Implemented the approved Cookbook scope in [the plan](./milestone-3-cookbook-plan.md) for GitHub issue #32.
 - Kept Cookbook independently layered across Domain, Data, and API projects, with approved shared React client integration in `ChopChop.Client`.
-- Reused the repository's Keycloak OIDC, JWT bearer validation, correlation, problem-details, SQL Server, migration, and testing conventions.
+- Reused the repository's OIDC JWT bearer validation, correlation,
+  problem-details, SQL Server, migration, and testing conventions.
 - Kept Recipe Management, Interactive Review, AI Recipe Generation, User and Profile, User Equipment, and Meal Planner ownership outside this assignment.
 
 ## Plan and Implement
@@ -16,14 +17,19 @@
 
 ## Authorization flow
 
-The browser client (`ChopChop.Client`) acts on behalf of the resource owner (the user). The user authenticates with the authorization server (Keycloak) using OAuth 2.0 authorization-code flow with PKCE. After sign-in, the client sends the bearer access token to the resource server (`Cookbook.Api`) for protected Cookbook endpoints. `Cookbook.Api` authorizes access by policy and scope; `/health` is anonymous.
+The browser client (`ChopChop.Client`) acts on behalf of the resource owner
+(the user) using Auth0 authorization-code flow with PKCE. It requests a
+Cookbook-audience bearer access token with delegated `cookbook.read` and
+`cookbook.write` scopes. `Cookbook.Api` validates that token as a resource
+server and authorizes endpoints with least-privilege scope policies.
+`/health` is anonymous.
 
 ## Token validation
 
 Cookbook reads these configuration keys; values, credentials, and signing secrets are intentionally excluded:
 
-- `Auth:Authority` — Keycloak issuer/authority URL.
-- `Auth:Audience` — expected API audience (`cookbook`).
+- `Auth:Authority` — configured OIDC issuer/authority URL.
+- `Auth:Audience` — expected Cookbook API audience.
 - `Auth:RequireHttpsMetadata` — whether authority metadata must use HTTPS.
 - `Auth:ValidAlgorithms` — allowlisted signing algorithms.
 
@@ -40,7 +46,7 @@ The API validates JWT signature and signing key, issuer, audience, and lifetime 
 | `GET` | `/api/v1/folders/{folderId:guid}/saved-recipes` | `cookbook.read` |
 | `DELETE` | `/api/v1/folders/{folderId:guid}/saved-recipes/{recipeId:guid}/{recipeVersion:int}` | `cookbook.write` |
 | `GET` | `/health` | Anonymous |
-| OpenAPI | Development only | Anonymous |
+| OpenAPI | Development only | Authenticated fallback policy |
 
 ## Test results
 

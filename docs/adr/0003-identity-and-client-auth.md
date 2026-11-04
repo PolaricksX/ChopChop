@@ -11,13 +11,21 @@ without embedded secrets.
 
 ## Decision
 
-Use the framework JWT bearer handler in both APIs. Configure the OIDC
+Use the framework JWT bearer handler in each API. Configure the OIDC
 authority and API audience using `Auth:Authority` and `Auth:Audience` per
 service and environment. Validate signature, issuer, audience, expiry, and
-standard OIDC signing-key rotation. Use Keycloak for local identity, and
-authorization-code flow with PKCE in the React client. Require explicit named
-least-privilege scope/claim policies and an authenticated fallback policy;
-only intentionally public routes such as `/health` are anonymous.
+standard OIDC signing-key rotation. Use authorization-code flow with PKCE in
+the public React client. Local Keycloak and configured Auth0 issuers are
+supported. Require explicit named least-privilege scope/claim policies and an
+authenticated fallback policy; only intentionally public routes such as
+`/health` and published recipe reads are anonymous.
+
+Owner IDs remain GUIDs in existing service data. Preserve GUID-valued `sub`
+claims; for opaque provider subjects, derive a stable internal GUID from the
+validated issuer and subject so separate issuers cannot share an owner key.
+Never accept the owner identity from request data. This does not automatically
+link a new opaque Auth0 subject to an existing account created under another
+issuer; account migration requires a trusted subject-to-account mapping.
 
 ## Consequences
 

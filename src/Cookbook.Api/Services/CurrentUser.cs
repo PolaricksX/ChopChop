@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using ChopChop.Shared;
 
 namespace Cookbook.Api.Services;
 
@@ -8,9 +8,9 @@ public sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICur
     {
         get
         {
-            var subject = httpContextAccessor.HttpContext?.User.FindFirstValue("sub");
-            if (!Guid.TryParse(subject, out var userId) || userId == Guid.Empty)
-                throw new UnauthorizedAccessException("A valid subject claim is required.");
+            var principal = httpContextAccessor.HttpContext?.User;
+            if (principal?.TryGetUserId(out var userId) != true)
+                throw new UnauthorizedAccessException("A valid subject and issuer claim are required.");
 
             return userId;
         }

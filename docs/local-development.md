@@ -2,7 +2,9 @@
 
 This guide runs the assigned AI Recipe Generation, Interactive Review, Recipe
 Management, and Cookbook services with a local SQL Server, RabbitMQ, Keycloak
-realm, and React client.
+realm, and React client. The browser client now uses Auth0; the APIs still
+default to the imported Keycloak realm unless their auth settings are
+overridden as described below.
 Do not use the development settings or credentials in a shared or production
 environment.
 
@@ -129,9 +131,9 @@ npm ci
 npm run dev
 ```
 
-The browser client defaults to API ports `5081` and `5082`, the local Keycloak
-realm URL, and the public client ID. `.env.local` may override those public
-URLs; it must never contain a client secret.
+The browser client defaults to API ports `5081`, `5082`, `20858`, and `20860`,
+plus the configured Auth0 public client settings. `.env.local` may override
+those public values; it must never contain a client secret.
 
 Available endpoints:
 
@@ -156,11 +158,73 @@ The client uses `VITE_COOKBOOK_API_URL` for the Cookbook API base URL. Set
 `src\ChopChop.Client\.env.local`; this is a public URL and must not contain a
 client secret.
 
-The APIs validate signed bearer tokens against Keycloak issuer and audience.
-The moderation policy expects the realm role as a `role` access-token claim.
-The imported realm configures that mapping. Local HTTP and local-only secrets
-are development conveniences; production must use HTTPS and an appropriately
-secured secret store.
+When using local Keycloak, the APIs validate signed bearer tokens against the
+issuer and audience from their development settings. Local HTTP and local-only
+secrets are development conveniences; production must use HTTPS and an
+appropriately secured secret store.
+
+### Using Auth0 with the browser client and APIs
+
+The client Auth0 application must allow `http://localhost:5173/` as its
+callback and logout URL and `http://localhost:5173` as its web origin. Its Vite
+dev server is pinned to port `5173`.
+
+Do **not** configure the Auth0 Management API (`https://<tenant>/api/v2/`) as
+the ChopChop API or grant its management permissions to the SPA. Create a
+separate Auth0 API (resource server) for each backend. Use these stable API
+identifiers, or replace them consistently in the client env and API user
+secrets:
+
+| API | Identifier/audience | Delegated API permissions |
+|---|---|---|
+| AI Recipe Generation | `https://api.chopchop.local/ai-recipe-generation` | `recipe-generations.create`, `recipe-generations.read`, `recipe-generations.confirm` |
+| Interactive Review | `https://api.chopchop.local/interactive-review` | `reviews.create`, `reviews.read`, `reviews.write`, `reviews.moderate` |
+| Recipe Management | `https://api.chopchop.local/recipe-management` | `recipes.read`, `recipes.write`, `recipes.publish` |
+| Cookbook | `https://api.chopchop.local/cookbook` | `cookbook.read`, `cookbook.write` |
+| User Service | `https://api.chopchop.local/user-service` | `users.read`, `users.write` |
+| Meal Planner | `https://api.chopchop.local/meal-planner` | `mealplans.read`, `mealplans.write` |
+
+For each API, set its signing algorithm to RS256, enable RBAC, and enable
+permissions in the access token. Assign only the needed permissions to user
+roles: `reviews.moderate` should be granted only to moderators. The browser
+client requests user-delegated access; do not enable a client secret or use
+client-credentials access from the browser. Public endpoints need no scope.
+The client uses scopes from its API-specific list and each API also recognizes
+Auth0's `permissions` array claim.
+
+Set the client audiences in `src\ChopChop.Client\.env.local` using the
+identifiers above. The SPA gets a distinct audience and scope set for each
+backend. Configure each API with the tenant issuer and its own expected
+audience through local user secrets:
+
+```powershell
+$issuer = "https://<your-auth0-domain>/"
+$apiAudiences = @{
+  "src\AiRecipeGeneration.Api" = "https://api.chopchop.local/ai-recipe-generation"
+  "src\InteractiveReview.Api" = "https://api.chopchop.local/interactive-review"
+  "src\RecipeManagement.Api" = "https://api.chopchop.local/recipe-management"
+  "src\Cookbook.Api" = "https://api.chopchop.local/cookbook"
+  "src\UserService.Api" = "https://api.chopchop.local/user-service"
+  "src\MealPlanner.Api" = "https://api.chopchop.local/meal-planner"
+}
+
+foreach ($project in $apiAudiences.Keys) {
+  dotnet user-secrets set "Auth:Authority" $issuer --project $project
+  dotnet user-secrets set "Auth:Audience" $apiAudiences[$project] --project $project
+}
+```
+
+The APIs validate tokens with their framework JWT bearer handlers, including
+signature, issuer, audience, expiry, signing-key rotation, and the configured
+algorithm allowlist. Auth0's API permissions are checked from the validated
+`scope`, `scp`, or `permissions` claims; the Management API permissions shown
+on the Auth0 Management API page are not relevant to these resource servers.
+API user secrets are local configuration and must not be committed.
+
+Existing data owned by a GUID-valued subject remains associated with that
+GUID. An opaque Auth0 subject gets a deterministic internal GUID derived from
+issuer and subject; this does not automatically link accounts across identity
+providers.
 
 ## 5. Validate changes
 

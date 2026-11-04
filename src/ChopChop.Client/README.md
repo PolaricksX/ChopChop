@@ -1,12 +1,22 @@
 # ChopChop Browser Client
 
-The React and TypeScript client uses OIDC authorization-code flow with PKCE.
-It stores the OIDC user session in `sessionStorage` and has no client secret.
+The React and TypeScript client uses the Auth0 React SDK with authorization
+code flow and PKCE. It is a public SPA and must not have a client secret.
 
-1. Follow the [local development guide](../../../docs/local-development.md)
-   to start Keycloak and the APIs.
-2. Copy `.env.example` to `.env.local` if local service URLs need overriding.
-3. Run `npm ci`, then `npm run dev`.
+1. In Auth0, configure the SPA's callback URL and logout URL as
+   `http://localhost:5173/`, and its web origin as `http://localhost:5173`.
+   The Vite dev command uses port `5173` with strict port selection to match.
+2. Copy `.env.example` to `.env.local` and set `VITE_AUTH0_DOMAIN`,
+   `VITE_AUTH0_CLIENT_ID`, and the four API audiences. These are public client
+   settings, not secrets. Create separate Auth0 APIs with the identifiers and
+   delegated permissions documented in the
+   [local development guide](../../../docs/local-development.md). Do not use
+   the Auth0 Management API audience or grant management permissions to this
+   SPA. Assign permissions by least-privilege user roles.
+3. Configure each API with its matching Auth0 issuer and audience as
+   described in the [local development guide](../../../docs/local-development.md).
+   The APIs default to local Keycloak unless overridden with user secrets.
+4. Run `npm ci`, then `npm run dev`.
 
 The client supports recipe generation/status/confirmation, review submission
 and reading, and a moderator queue. Photos are intentionally unavailable.

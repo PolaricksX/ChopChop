@@ -3,12 +3,13 @@ import { getPublishedRecipe, RecipeApiError } from './api'
 import type { PublishedRecipe } from './types'
 import { listFolders, saveRecipe, CookbookApiError } from '../cookbook/api'
 import type { Folder } from '../cookbook/types'
-import { userManager } from '../auth'
+import { useAuth0 } from '@auth0/auth0-react'
 export function RecipeDetails({ recipeId, onBack }: { recipeId: string; onBack?: () => void }) {
+  const { isAuthenticated } = useAuth0()
   const [recipe, setRecipe] = useState<PublishedRecipe | null>(null); const [error, setError] = useState('');
   const [folders, setFolders] = useState<Folder[]>([]); const [folderId, setFolderId] = useState(''); const [saveMessage, setSaveMessage] = useState(''); const [saving, setSaving] = useState(false)
   useEffect(() => { getPublishedRecipe(recipeId).then(setRecipe).catch((e: unknown) => setError(e instanceof RecipeApiError ? e.message : 'Recipe could not be loaded.')) }, [recipeId])
-  useEffect(() => { void userManager.getUser().then((user) => { if (user?.access_token) return listFolders().then(setFolders).catch(() => undefined) }).catch(() => undefined) }, [])
+  useEffect(() => { if (isAuthenticated) void listFolders().then(setFolders).catch(() => undefined) }, [isAuthenticated])
   if (error) return <section className="panel"><p role="alert" className="message error">{error}</p></section>
   if (!recipe) return <section className="panel"><p role="status">Loading recipe…</p></section>
   const v = recipe.version
