@@ -25,7 +25,7 @@ For Milestone 2, we focused on aligning the repository structure with the instru
 
 ## What remains incomplete or assumed
 
-- This update provides structure and process guidance; it does not add missing frontend or complete production service implementations.
+- At the time of this milestone update, it provided structure and process guidance; it did not add a frontend or complete production service implementations.
 - Agent files are reusable instruction templates for future work rather than runtime-enforced automation.
 - Validation here is mainly structural/documentation validation, because this milestone task is not introducing executable application code.
 

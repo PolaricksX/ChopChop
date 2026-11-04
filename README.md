@@ -31,9 +31,13 @@
   - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
 - `src/` — `UserService.*`, `MealPlanner.*`, `AiRecipeGeneration.*`,
   `InteractiveReview.*`, and `RecipeManagement.*` services, plus
-  `ChopChop.Shared` and `ChopChop.Client` (React)
+  `ChopChop.Shared`, `ChopChop.Client`, and `MealPlanner.Client` (React)
 - `tests/` — unit and integration tests for each service
 - `compose.yaml` — local SQL Server and RabbitMQ dependencies; set required credentials through environment variables
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`
 
 Services use the shared `ConnectionStrings:ChopChop` database connection and own separate tables.
+
+The React browser client is in `src/MealPlanner.Client`. See the
+[Meal Planning client guide](docs/meal-planning-client.md) for setup,
+authentication, and API behavior.
