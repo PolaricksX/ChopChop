@@ -9,6 +9,13 @@ It stores the OIDC user session in `sessionStorage` and has no client secret.
 3. Run `npm ci`, then `npm run dev`.
 
 The client supports recipe generation/status/confirmation, review submission
-and reading, and a moderator queue. Photos are intentionally unavailable.
+and reading, a moderator queue, Cookbook folders, and the Equipment inventory
+tab. Equipment requests use authenticated HTTP DTOs and never include an owner
+identifier.
+
+Set `VITE_EQUIPMENT_API_URL` to the Equipment API origin if it is not running
+at the local default `http://localhost:5018`. Configure the public Keycloak
+client for authorization-code flow with PKCE S256 and request the
+`equipment.read` and `equipment.write` scopes.
 
 Run `npm run build`, `npm test`, and `npm run lint` to validate client changes.

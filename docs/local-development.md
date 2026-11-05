@@ -144,6 +144,8 @@ Available endpoints:
   `/health`.
 - Cookbook API: `http://localhost:20860`; OpenAPI document at
   `/openapi/v1.json`; health at `/health`.
+- User Equipment API: `http://localhost:5018`; OpenAPI document at
+  `/openapi/v1.json`; health at `/health`.
 - Keycloak: `http://localhost:8080/realms/chopchop`.
 
 The client uses `VITE_RECIPE_MANAGEMENT_API_URL` for the Recipe Management API
@@ -155,6 +157,12 @@ The client uses `VITE_COOKBOOK_API_URL` for the Cookbook API base URL. Set
 `VITE_COOKBOOK_API_URL=http://localhost:20860` in
 `src\ChopChop.Client\.env.local`; this is a public URL and must not contain a
 client secret.
+
+The client uses `VITE_EQUIPMENT_API_URL` for the User Equipment API base URL.
+It defaults to `http://localhost:5018`; override it in
+`src\ChopChop.Client\.env.local` when the service uses another origin. The
+client requests `equipment.read` and `equipment.write` through the public
+Keycloak client configured for authorization-code flow with PKCE.
 
 The APIs validate signed bearer tokens against Keycloak issuer and audience.
 The moderation policy expects the realm role as a `role` access-token claim.
