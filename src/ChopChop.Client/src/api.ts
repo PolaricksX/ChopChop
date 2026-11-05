@@ -48,18 +48,24 @@ export type Review = {
 
 export class ApiError extends Error {
   readonly status: number
+  readonly validationErrors: Record<string, string[]>
+  readonly correlationId?: string
 
   constructor(
     message: string,
     status: number,
+    validationErrors: Record<string, string[]> = {},
+    correlationId?: string,
   ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.validationErrors = validationErrors
+    this.correlationId = correlationId
   }
 }
 
-async function request<T>(
+export async function request<T>(
   baseUrl: string,
   path: string,
   accessToken: string,
@@ -76,19 +82,51 @@ async function request<T>(
   })
 
   if (!response.ok) {
-    const problem = await response.json().catch(() => undefined)
+    const body = await response.text()
+    let problem: unknown
+    if (body) {
+      try {
+        problem = JSON.parse(body)
+      } catch (parseError) {
+        if (!(parseError instanceof SyntaxError)) throw parseError
+      }
+    }
+    const details = asRecord(problem)
+    const detail = details?.detail
+    const error = details?.error
     throw new ApiError(
-      typeof problem?.detail === 'string'
-        ? problem.detail
-        : typeof problem?.error === 'string'
-          ? problem.error
+      typeof detail === 'string'
+        ? detail
+        : typeof error === 'string'
+          ? error
           : `The request failed (${response.status}).`,
       response.status,
+      readValidationErrors(details?.errors),
+      typeof details?.correlationId === 'string'
+        ? details.correlationId
+        : response.headers.get('X-Correlation-Id') ?? undefined,
     )
   }
 
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+}
+
+function readValidationErrors(value: unknown): Record<string, string[]> {
+  const errors = asRecord(value)
+  if (!errors) return {}
+
+  return Object.fromEntries(
+    Object.entries(errors).filter((entry): entry is [string, string[]] =>
+      Array.isArray(entry[1]) && entry[1].every((item) => typeof item === 'string'),
+    ),
+  )
 }
 
 const aiApi = import.meta.env.VITE_AI_RECIPE_API_URL ?? 'http://localhost:5081'

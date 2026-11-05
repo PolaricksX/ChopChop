@@ -18,8 +18,9 @@ import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import { ProfilePanel } from './users/ProfilePanel'
 
-type Panel = 'recipe' | 'recipes' | 'cookbook' | 'review' | 'moderation'
+type Panel = 'recipe' | 'recipes' | 'cookbook' | 'review' | 'moderation' | 'profile'
 type RecipeView = 'browse' | 'drafts' | 'new' | 'details' | 'edit'
 
 function App() {
@@ -246,11 +247,12 @@ function App() {
       </section>
 
       <nav className="tabs" aria-label="Cookbook tools">
-        <button className={activePanel === 'recipe' ? 'tab active' : 'tab'} onClick={() => setActivePanel('recipe')}>AI recipe</button>
-        <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
-        <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
-        <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
-        <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
+        <button aria-pressed={activePanel === 'recipe'} className={activePanel === 'recipe' ? 'tab active' : 'tab'} onClick={() => setActivePanel('recipe')}>AI recipe</button>
+        <button aria-pressed={activePanel === 'recipes'} className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
+        <button aria-pressed={activePanel === 'cookbook'} className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
+        <button aria-pressed={activePanel === 'review'} className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
+        <button aria-pressed={activePanel === 'moderation'} className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
+        <button aria-pressed={activePanel === 'profile'} className={activePanel === 'profile' ? 'tab active' : 'tab'} onClick={() => setActivePanel('profile')}>Profile</button>
       </nav>
 
       {error && <p role="alert" className="message error">{error}</p>}
@@ -278,6 +280,18 @@ function App() {
       )}
 
       {activePanel === 'cookbook' && <CookbookTab />}
+
+      {activePanel === 'profile' && (
+        <ProfilePanel
+          key={user.profile.sub}
+          accessToken={user.access_token}
+          subject={user.profile.sub}
+          initialUsername={typeof user.profile.preferred_username === 'string' ? user.profile.preferred_username : ''}
+          initialEmail={typeof user.profile.email === 'string' ? user.profile.email : ''}
+          initialDisplayName={typeof user.profile.name === 'string' ? user.profile.name : ''}
+          onSignIn={() => { void userManager.signinRedirect() }}
+        />
+      )}
 
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">

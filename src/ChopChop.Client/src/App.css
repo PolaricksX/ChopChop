@@ -339,6 +339,27 @@ button:disabled {
   color: var(--green-dark);
 }
 
+.field-error {
+  color: #8d2923;
+  font-size: 0.88rem;
+  margin-bottom: 4px;
+}
+
+.profile-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 20px 0;
+}
+
+.profile-meta p {
+  margin-bottom: 6px;
+}
+
+.danger {
+  background: #a83d35;
+  color: white;
+}
+
 .feed-header {
   justify-content: space-between;
   margin-top: 30px;
@@ -426,6 +447,10 @@ footer {
   .tab {
     font-size: 0.85rem;
     padding: 11px 9px;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
   }
 
   footer {

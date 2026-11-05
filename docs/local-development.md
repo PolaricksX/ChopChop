@@ -2,7 +2,8 @@
 
 This guide runs the assigned AI Recipe Generation, Interactive Review, Recipe
 Management, and Cookbook services with a local SQL Server, RabbitMQ, Keycloak
-realm, and React client.
+realm, and React client. It also documents local User Service prerequisites
+for the separately approved profile frontend work in issue #59.
 Do not use the development settings or credentials in a shared or production
 environment.
 
@@ -41,6 +42,7 @@ dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\I
 dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\InteractiveReview.Api
 dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\RecipeManagement.Api
 dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\Cookbook.Api
+dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\UserService.Api
 ```
 
 For AI generation, also configure the Azure OpenAI v1 endpoint, deployment
@@ -93,6 +95,15 @@ $env:ConnectionStrings__Cookbook = $connection
 dotnet ef database update --project src\Cookbook.Data --startup-project src\Cookbook.Api --context CookbookDbContext
 ```
 
+### User Service
+
+User Service owns its tables in the shared `ChopChop` database. Configure its
+connection string through local user secrets and apply its migration:
+
+```powershell
+dotnet ef database update --project src\UserService.Data --startup-project src\UserService.Api
+```
+
 Cookbook local development quick reference:
 
 - API URL: `http://localhost:20860`.
@@ -120,6 +131,14 @@ dotnet run --project src\RecipeManagement.Api --launch-profile RecipeManagement.
 dotnet run --project src\Cookbook.Api --launch-profile Cookbook.Api
 ```
 
+For the User Service, allow the local Vite origin for this terminal and start
+the API:
+
+```powershell
+$env:Cors__AllowedOrigins__0 = "http://localhost:5173"
+dotnet run --project src\UserService.Api --launch-profile http
+```
+
 In another terminal:
 
 ```powershell
@@ -144,6 +163,8 @@ Available endpoints:
   `/health`.
 - Cookbook API: `http://localhost:20860`; OpenAPI document at
   `/openapi/v1.json`; health at `/health`.
+- User Service API: `http://localhost:5199`; OpenAPI document at
+  `/openapi/v1.json`; health at `/health`.
 - Keycloak: `http://localhost:8080/realms/chopchop`.
 
 The client uses `VITE_RECIPE_MANAGEMENT_API_URL` for the Recipe Management API
@@ -155,6 +176,14 @@ The client uses `VITE_COOKBOOK_API_URL` for the Cookbook API base URL. Set
 `VITE_COOKBOOK_API_URL=http://localhost:20860` in
 `src\ChopChop.Client\.env.local`; this is a public URL and must not contain a
 client secret.
+
+The client uses `VITE_USER_SERVICE_API_URL` for User Service requests. Set
+`VITE_USER_SERVICE_API_URL=http://localhost:5199` in
+`src\ChopChop.Client\.env.local`. User Service requests require the
+`user-service` token audience and `users.read` / `users.write` scopes. The
+imported Keycloak realm does not currently issue them; configure the public
+`chopchop-web` client and its token audience separately before testing live
+profile calls. Do not put credentials or a client secret in `.env.local`.
 
 The APIs validate signed bearer tokens against Keycloak issuer and audience.
 The moderation policy expects the realm role as a `role` access-token claim.

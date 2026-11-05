@@ -35,7 +35,8 @@ describe('API client', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
       status: 403,
-      json: async () => ({ detail: 'Moderator role required.' }),
+      headers: new Headers(),
+      text: async () => JSON.stringify({ detail: 'Moderator role required.' }),
     }))
 
     await expect(getGeneration('token', 'request-id'))

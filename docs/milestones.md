@@ -11,6 +11,10 @@ Each assignment is limited to its own independently runnable services and
 their shared client/infrastructure support. Other service ownership remains
 with the team.
 
+Issue [#59](https://github.com/PolaricksX/ChopChop/issues/59) is separately
+approved standalone User Service frontend work. It is not an addition to the
+Milestone 3 assignments listed above and does not change User Service ownership.
+
 ### AI Recipe Generation and Interactive Review (#18, #19)
 
 The accepted implementation plan and approved choices are recorded in
