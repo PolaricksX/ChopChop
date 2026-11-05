@@ -38,7 +38,7 @@ builder.Services.AddUserServiceData(sp =>
 
 builder.Services.AddOptions<AuthOptions>()
     .BindConfiguration("Auth")
-    .Validate(AuthOptions.IsValid, "Auth:Authority (absolute URI) and Auth:Audience must be configured.")
+    .Validate(options => builder.Configuration.GetValue<bool>("Auth:DevelopmentAuthentication") || AuthOptions.IsValid(options), "Auth:Authority (absolute URI) and Auth:Audience must be configured.")
     .ValidateOnStart();
 builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
 if (!ChopChop.Shared.DevelopmentAuthentication.TryAddDevelopmentAuthentication(builder.Services, builder.Configuration, builder.Environment))
