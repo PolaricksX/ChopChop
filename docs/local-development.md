@@ -131,9 +131,9 @@ npm ci
 npm run dev
 ```
 
-The browser client defaults to API ports `5081`, `5082`, `20858`, and `20860`,
-plus the configured Auth0 public client settings. `.env.local` may override
-those public values; it must never contain a client secret.
+The browser client defaults to API ports `5081`, `5082`, `20858`, `20860`, and
+`5033`, plus the configured Auth0 public client settings. `.env.local` may
+override those public values; it must never contain a client secret.
 
 Available endpoints:
 
@@ -157,6 +157,10 @@ The client uses `VITE_COOKBOOK_API_URL` for the Cookbook API base URL. Set
 `VITE_COOKBOOK_API_URL=http://localhost:20860` in
 `src\ChopChop.Client\.env.local`; this is a public URL and must not contain a
 client secret.
+
+The Meal Plans tab uses `VITE_MEAL_PLANNER_API_URL` for its API base URL. It
+defaults to `http://localhost:5033`; override it in
+`src\ChopChop.Client\.env.local` when the Meal Planner API runs elsewhere.
 
 When using local Keycloak, the APIs validate signed bearer tokens against the
 issuer and audience from their development settings. Local HTTP and local-only

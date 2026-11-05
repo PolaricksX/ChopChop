@@ -9,6 +9,9 @@ createRoot(document.getElementById('root')!).render(
     <Auth0Provider
       domain={import.meta.env.VITE_AUTH0_DOMAIN ?? 'dev-55ll2x7q7gclx8c2.ca.auth0.com'}
       clientId={import.meta.env.VITE_AUTH0_CLIENT_ID ?? '2WTazHwh53cl5B8JV7VeJu7uj414sJBk'}
+      useRefreshTokens
+      useRefreshTokensFallback
+      cacheLocation="localstorage"
       authorizationParams={{
         redirect_uri: `${window.location.origin}/`,
         scope: 'openid profile email',
