@@ -1,0 +1,71 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getApiAccessToken, setTokenGetter } from './auth'
+
+describe('Auth0 API access tokens', () => {
+  const tokenGetter = vi.fn()
+
+  beforeEach(() => {
+    tokenGetter.mockReset().mockResolvedValue('access-token')
+    setTokenGetter(tokenGetter)
+    vi.stubEnv('VITE_AUTH0_AI_RECIPE_AUDIENCE', 'https://api.chopchop.local/ai-recipe-generation')
+    vi.stubEnv('VITE_AUTH0_INTERACTIVE_REVIEW_AUDIENCE', 'https://api.chopchop.local/interactive-review')
+    vi.stubEnv('VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE', 'https://api.chopchop.local/recipe-management')
+    vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
+  })
+
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('requests only the AI permission needed for the operation', async () => {
+    await expect(getApiAccessToken('ai', 'recipe-generations.create')).resolves.toBe('access-token')
+    expect(tokenGetter).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/ai-recipe-generation',
+        scope: 'recipe-generations.create',
+      },
+    })
+  })
+
+  it('requests moderator access only when a moderation operation needs it', async () => {
+    await getApiAccessToken('review', 'reviews.moderate')
+    expect(tokenGetter).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/interactive-review',
+        scope: 'reviews.moderate',
+      },
+    })
+  })
+
+  it('forces a fresh token when retrying an unauthorized API request', async () => {
+    await getApiAccessToken('recipes', 'recipes.write', true)
+    expect(tokenGetter).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/recipe-management',
+        scope: 'recipes.write',
+      },
+      cacheMode: 'off',
+    })
+  })
+
+  it('requests only the Cookbook permission needed for the operation', async () => {
+    await getApiAccessToken('cookbook', 'cookbook.read')
+    expect(tokenGetter).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/cookbook',
+        scope: 'cookbook.read',
+      },
+    })
+  })
+
+  it('does not request a permission from the wrong API', async () => {
+    await expect(getApiAccessToken('review', 'cookbook.write')).rejects.toThrow(
+      'Permission cookbook.write is not valid for the review API.',
+    )
+    expect(tokenGetter).not.toHaveBeenCalled()
+  })
+
+  it('does not request a token for an API with no configured audience', async () => {
+    vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', '')
+    await expect(getApiAccessToken('cookbook', 'cookbook.read')).rejects.toThrow('VITE_AUTH0_COOKBOOK_AUDIENCE')
+    expect(tokenGetter).not.toHaveBeenCalled()
+  })
+})

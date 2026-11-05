@@ -12,7 +12,7 @@ public static class ScopeClaims
 {
     public static bool HasScope(ClaimsPrincipal user, string scope) =>
         user.Claims
-            .Where(claim => claim.Type is "scope" or "scp")
+            .Where(claim => claim.Type is "scope" or "scp" or "permissions")
             .SelectMany(claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Contains(scope, StringComparer.Ordinal);
 }

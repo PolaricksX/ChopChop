@@ -1,28 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { userManager } from './auth'
 
-vi.mock('./auth', () => ({
-  userManager: {
-    getUser: vi.fn(),
-    signinRedirect: vi.fn(),
-    signinRedirectCallback: vi.fn(),
-    signoutRedirect: vi.fn(),
-    events: {
-      addUserLoaded: vi.fn(),
-      removeUserLoaded: vi.fn(),
-      addUserUnloaded: vi.fn(),
-      removeUserUnloaded: vi.fn(),
-      addAccessTokenExpired: vi.fn(),
-      removeAccessTokenExpired: vi.fn(),
-    },
-  },
+const loginWithRedirect = vi.fn()
+
+vi.mock('@auth0/auth0-react', () => ({
+  useAuth0: () => ({
+    error: undefined,
+    getAccessTokenSilently: vi.fn(),
+    isAuthenticated: false,
+    isLoading: false,
+    loginWithRedirect,
+    logout: vi.fn(),
+    user: undefined,
+  }),
 }))
 
 describe('App authentication gate', () => {
   beforeEach(() => {
-    vi.mocked(userManager.getUser).mockResolvedValue(null)
+    loginWithRedirect.mockReset()
   })
 
   it('keeps recipe and review tools behind OIDC sign-in', async () => {
@@ -32,10 +28,10 @@ describe('App authentication gate', () => {
     expect(screen.queryByRole('heading', { name: 'Create a recipe draft' })).toBeNull()
   })
 
-  it('starts the authorization-code sign-in flow from the sign-in action', async () => {
+  it('starts Auth0 Universal Login from the sign-in action', async () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in to continue' }))
 
-    expect(userManager.signinRedirect).toHaveBeenCalledOnce()
+    expect(loginWithRedirect).toHaveBeenCalledOnce()
   })
 })

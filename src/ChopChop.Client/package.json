@@ -4,14 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 5173 --strictPort",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
-    "oidc-client-ts": "^3.5.0",
+    "@auth0/auth0-react": "^2.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

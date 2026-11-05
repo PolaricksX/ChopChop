@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using ChopChop.Shared;
 using InteractiveReview.Api.Contracts;
+using InteractiveReview.Api.Infrastructure;
 using InteractiveReview.Api.Services;
 using InteractiveReview.Data;
 using InteractiveReview.Data.Context;
@@ -10,6 +11,7 @@ using InteractiveReview.Data.Messaging;
 using InteractiveReview.Data.Repositories;
 using InteractiveReview.Domain;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -59,10 +61,19 @@ if (builder.Configuration.GetValue("BackgroundServices:Enabled", true))
     builder.Services.AddHostedService<OutboxDispatcher>();
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("review:create", policy => policy.RequireAuthenticatedUser());
-    options.AddPolicy("review:read", policy => policy.RequireAuthenticatedUser());
-    options.AddPolicy("review:moderate", policy =>
-        policy.RequireAuthenticatedUser().RequireClaim("role", "review-moderator"));
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    options.AddPolicy(Policies.ReviewsCreate, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context =>
+            context.User.HasScope(Policies.ReviewsCreate)));
+    options.AddPolicy(Policies.ReviewsRead, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context =>
+            context.User.HasScope(Policies.ReviewsRead)));
+    options.AddPolicy(Policies.ReviewsWrite, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context =>
+            context.User.HasScope(Policies.ReviewsWrite)));
+    options.AddPolicy(Policies.ReviewsModerate, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context =>
+            context.User.HasScope(Policies.ReviewsModerate)));
 });
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -127,7 +138,7 @@ app.MapPost("/api/reviews", async (
             return Results.Conflict(new { error = "A review already exists for this recipe and user." });
         }
     })
-    .RequireAuthorization("review:create")
+    .RequireAuthorization(Policies.ReviewsCreate)
     .RequireRateLimiting("review-submissions");
 app.MapGet("/api/recipes/{recipeId:guid}/reviews", async (
         Guid recipeId,
@@ -153,7 +164,7 @@ app.MapGet("/api/recipes/{recipeId:guid}/reviews", async (
             });
         }
     })
-    .RequireAuthorization("review:read");
+    .RequireAuthorization(Policies.ReviewsRead);
 app.MapGet("/api/reviews/{id:guid}", async (
         Guid id,
         HttpContext context,
@@ -166,7 +177,7 @@ app.MapGet("/api/reviews/{id:guid}", async (
         var response = await service.GetOwnedAsync(id, ownerId, cancellationToken);
         return response is null ? Results.NotFound() : Results.Ok(response);
     })
-    .RequireAuthorization("review:read");
+    .RequireAuthorization(Policies.ReviewsRead);
 app.MapPut("/api/reviews/{id:guid}", async (
         Guid id,
         UpdateReviewRequest request,
@@ -196,7 +207,7 @@ app.MapPut("/api/reviews/{id:guid}", async (
             });
         }
     })
-    .RequireAuthorization("review:create");
+    .RequireAuthorization(Policies.ReviewsWrite);
 app.MapDelete("/api/reviews/{id:guid}", async (
         Guid id,
         HttpContext context,
@@ -214,7 +225,7 @@ app.MapDelete("/api/reviews/{id:guid}", async (
             ? Results.NoContent()
             : Results.NotFound();
     })
-    .RequireAuthorization("review:create");
+    .RequireAuthorization(Policies.ReviewsWrite);
 app.MapGet("/api/moderation/reviews", async (
         int? limit,
         ReviewApplicationService service,
@@ -232,7 +243,7 @@ app.MapGet("/api/moderation/reviews", async (
             });
         }
     })
-    .RequireAuthorization("review:moderate");
+    .RequireAuthorization(Policies.ReviewsModerate);
 app.MapPost("/api/moderation/reviews/{id:guid}", async (
         Guid id,
         ModerateReviewRequest request,
@@ -266,7 +277,7 @@ app.MapPost("/api/moderation/reviews/{id:guid}", async (
             return Results.Conflict(new { error = exception.Message });
         }
     })
-    .RequireAuthorization("review:moderate");
+    .RequireAuthorization(Policies.ReviewsModerate);
 app.Run();
 
 public sealed class DatabaseHealthCheck(InteractiveReviewDbContext dbContext)
