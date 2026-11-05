@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MealEntry, MealPlan } from './types'
-import { MealPlannerDashboard } from './App'
+import { MealPlannerDashboard } from './MealPlannerDashboard'
+import type { MealPlannerAccessTokenProvider } from './api'
 
 const firstPlan: MealPlan = {
   id: 'plan-1',
@@ -36,8 +37,7 @@ const meal: MealEntry = {
 }
 
 const fetchMock = vi.fn<typeof fetch>()
-const sessionExpired = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
-const signOut = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+const getAccessToken = vi.fn<MealPlannerAccessTokenProvider>().mockResolvedValue('access-token')
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -52,20 +52,14 @@ function page<T>(items: T[], totalCount = items.length, currentPage = 1) {
 
 function renderDashboard() {
   return render(
-    <MealPlannerDashboard
-      accessToken="access-token"
-      displayName="Sean"
-      onSessionExpired={sessionExpired}
-      onSignOut={signOut}
-    />,
+    <MealPlannerDashboard getAccessToken={getAccessToken} />,
   )
 }
 
 describe('meal planner dashboard', () => {
   beforeEach(() => {
     fetchMock.mockReset()
-    sessionExpired.mockClear()
-    signOut.mockClear()
+    getAccessToken.mockReset().mockResolvedValue('access-token')
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -250,13 +244,18 @@ describe('meal planner dashboard', () => {
     expect(await screen.findByText('In progress')).toBeInTheDocument()
   })
 
-  it('ends the session on 401 and clearly reports authorization and conflict failures', async () => {
+  it('retries unauthorized requests with a fresh token and reports persistent failures', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ title: 'Unauthorized' }, 401))
     renderDashboard()
 
-    await waitFor(() => {
-      expect(sessionExpired).toHaveBeenCalledOnce()
-    })
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The Meal Planner service rejected your access token.',
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(getAccessToken.mock.calls).toEqual([
+      ['mealplans.read'],
+      ['mealplans.read', true],
+    ])
   })
 
   it('shows an explicit service-unavailable message instead of sample data', async () => {

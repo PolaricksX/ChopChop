@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, mealPlanApi } from './api'
-import { useAuth } from './auth-context'
+import type { MealPlannerAccessTokenProvider } from './api'
 import type {
   MealDraft,
   MealEntry,
@@ -12,7 +12,7 @@ import type {
   MealSlot,
   PlanDraft,
 } from './types'
-import './App.css'
+import './MealPlanner.css'
 
 const pageSize = 20
 const mealSlots: MealSlot[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
@@ -163,6 +163,9 @@ function errorMessage(error: unknown): string {
   if (error.status === 403) {
     return 'Your account does not have permission to do that.'
   }
+  if (error.status === 401) {
+    return 'The Meal Planner service rejected your access token. Sign out and sign in again, or verify your Meal Planner permissions.'
+  }
   if (error.status === 404) {
     return 'That meal plan or meal is no longer available. Refresh to see the latest data.'
   }
@@ -230,80 +233,10 @@ function ApiAlert({
   )
 }
 
-function AuthGate() {
-  const auth = useAuth()
-  const displayName =
-    auth.user?.profile.preferred_username ||
-    auth.user?.profile.name ||
-    auth.user?.profile.email ||
-    'your account'
-
-  if (auth.phase === 'loading') {
-    return (
-      <main className="auth-page">
-        <p role="status">Checking your sign-in…</p>
-      </main>
-    )
-  }
-
-  if (auth.user && !auth.user.expired) {
-    return (
-      <MealPlannerDashboard
-        accessToken={auth.user.access_token}
-        authNotice={auth.error}
-        onSessionExpired={auth.expireSession}
-        onSignOut={auth.signOut}
-        displayName={displayName}
-      />
-    )
-  }
-
-  return (
-    <main className="auth-page">
-      <section className="auth-card" aria-labelledby="auth-title">
-        <p className="eyebrow">CHOPCHOP · MEAL PLANNER</p>
-        <h1 id="auth-title">{auth.sessionExpired ? 'Your session expired' : 'Plan meals with confidence'}</h1>
-        <p>
-          {auth.sessionExpired
-            ? 'Sign in again to continue managing your meal plans.'
-            : 'Sign in with your ChopChop account to create and manage your plans.'}
-        </p>
-        {auth.error && <p className="notice notice-error" role="alert">{auth.error}</p>}
-        <button
-          className="button button-primary button-wide"
-          disabled={!auth.canSignIn}
-          onClick={() => void auth.signIn()}
-          type="button"
-        >
-          Sign in
-        </button>
-        {!auth.canSignIn && (
-          <p className="muted">
-            Authentication is not configured. Follow the client setup instructions to set the
-            identity provider and public client ID.
-          </p>
-        )}
-      </section>
-    </main>
-  )
-}
-
-export default function App() {
-  return <AuthGate />
-}
-
 export function MealPlannerDashboard({
-  accessToken,
-  onSessionExpired,
-  onSignOut,
-  displayName,
-  authNotice,
+  getAccessToken,
 }: {
-  accessToken: string
-  onSessionExpired: () => Promise<void>
-  onSignOut: () => Promise<void>
-  displayName: string
-  authNotice?: string | null
+  getAccessToken: MealPlannerAccessTokenProvider
 }) {
   const [plans, setPlans] = useState<MealPlanPage>(planPageDefaults)
   const [plansLoading, setPlansLoading] = useState(true)
@@ -332,7 +265,7 @@ export function MealPlannerDashboard({
   useEffect(() => {
     let active = true
     mealPlanApi
-      .listPlans(accessToken, plansPage, pageSize)
+      .listPlans(getAccessToken, plansPage, pageSize)
       .then((response) => {
         if (!active) {
           return
@@ -342,11 +275,7 @@ export function MealPlannerDashboard({
       })
       .catch((requestError: unknown) => {
         if (active) {
-          if (requestError instanceof ApiError && requestError.status === 401) {
-            void onSessionExpired()
-          } else {
-            setError(requestError)
-          }
+          setError(requestError)
         }
       })
       .finally(() => {
@@ -358,7 +287,7 @@ export function MealPlannerDashboard({
     return () => {
       active = false
     }
-  }, [accessToken, plansPage, plansRevision, onSessionExpired])
+  }, [getAccessToken, plansPage, plansRevision])
 
   useEffect(() => {
     if (!selectedPlanId) {
@@ -367,8 +296,8 @@ export function MealPlannerDashboard({
 
     let active = true
     Promise.all([
-      mealPlanApi.getPlan(accessToken, selectedPlanId),
-      mealPlanApi.listMeals(accessToken, selectedPlanId, mealsPage, pageSize, mealDateFilter || undefined),
+      mealPlanApi.getPlan(getAccessToken, selectedPlanId),
+      mealPlanApi.listMeals(getAccessToken, selectedPlanId, mealsPage, pageSize, mealDateFilter || undefined),
     ])
       .then(([plan, mealPage]) => {
         if (!active) {
@@ -379,11 +308,7 @@ export function MealPlannerDashboard({
       })
       .catch((requestError: unknown) => {
         if (active) {
-          if (requestError instanceof ApiError && requestError.status === 401) {
-            void onSessionExpired()
-          } else {
-            setError(requestError)
-          }
+          setError(requestError)
         }
       })
       .finally(() => {
@@ -396,12 +321,11 @@ export function MealPlannerDashboard({
       active = false
     }
   }, [
-    accessToken,
+    getAccessToken,
     selectedPlanId,
     mealsPage,
     mealDateFilter,
     detailsRevision,
-    onSessionExpired,
   ])
 
   const refresh = () => {
@@ -419,10 +343,6 @@ export function MealPlannerDashboard({
   }
 
   const handleRequestError = (requestError: unknown) => {
-    if (requestError instanceof ApiError && requestError.status === 401) {
-      void onSessionExpired()
-      return
-    }
     setError(requestError)
   }
 
@@ -467,11 +387,11 @@ export function MealPlannerDashboard({
     setError(null)
     try {
       const saved = editingPlanId && selectedPlan
-        ? await mealPlanApi.updatePlan(accessToken, editingPlanId, {
+        ? await mealPlanApi.updatePlan(getAccessToken, editingPlanId, {
             ...planDraft,
             name: planDraft.name.trim(),
           }, selectedPlan.version)
-        : await mealPlanApi.createPlan(accessToken, {
+        : await mealPlanApi.createPlan(getAccessToken, {
             ...planDraft,
             name: planDraft.name.trim(),
           })
@@ -498,7 +418,7 @@ export function MealPlannerDashboard({
     setError(null)
     try {
       const updated = await mealPlanApi.changePlanStatus(
-        accessToken,
+        getAccessToken,
         selectedPlan.id,
         status,
         selectedPlan.version,
@@ -522,7 +442,7 @@ export function MealPlannerDashboard({
     setPending(true)
     setError(null)
     try {
-      await mealPlanApi.deletePlan(accessToken, selectedPlan.id, selectedPlan.version)
+      await mealPlanApi.deletePlan(getAccessToken, selectedPlan.id, selectedPlan.version)
       const nextCount = Math.max(0, plans.totalCount - 1)
       const lastPage = Math.max(1, Math.ceil(nextCount / plans.pageSize))
       setSelectedPlanId(null)
@@ -583,11 +503,11 @@ export function MealPlannerDashboard({
     setError(null)
     try {
       const saved = editingMealId
-        ? await mealPlanApi.updateMeal(accessToken, selectedPlan, editingMealId, {
+        ? await mealPlanApi.updateMeal(getAccessToken, selectedPlan, editingMealId, {
             ...mealDraft,
             title: mealDraft.title.trim(),
           })
-        : await mealPlanApi.createMeal(accessToken, selectedPlan, {
+        : await mealPlanApi.createMeal(getAccessToken, selectedPlan, {
             ...mealDraft,
             title: mealDraft.title.trim(),
           })
@@ -610,7 +530,7 @@ export function MealPlannerDashboard({
     setPending(true)
     setError(null)
     try {
-      const updated = await mealPlanApi.changeMealStatus(accessToken, selectedPlan, meal.id, status)
+      const updated = await mealPlanApi.changeMealStatus(getAccessToken, selectedPlan, meal.id, status)
       setSelectedPlan((current) => current ? { ...current, version: updated.version } : current)
       setPlanLoading(true)
       setDetailsRevision((revision) => revision + 1)
@@ -628,7 +548,7 @@ export function MealPlannerDashboard({
     setPending(true)
     setError(null)
     try {
-      await mealPlanApi.deleteMeal(accessToken, selectedPlan, mealId)
+      await mealPlanApi.deleteMeal(getAccessToken, selectedPlan, mealId)
       setSelectedPlan(null)
       setPlanLoading(true)
       setMealsPage((page) =>
@@ -667,22 +587,8 @@ export function MealPlannerDashboard({
     selectedPlan?.status === 'Completed' || selectedPlan?.status === 'Cancelled'
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="ChopChop Meal Planner home">
-          <span className="brand-mark" aria-hidden="true">C</span>
-          <span>ChopChop<span className="brand-divider">/</span>Meal Planner</span>
-        </a>
-        <div className="account">
-          <span className="account-name">{displayName}</span>
-          <button className="button button-quiet" onClick={() => void onSignOut()} type="button">
-            Sign out
-          </button>
-        </div>
-      </header>
-
-      <main className="workspace">
-        {authNotice && <p className="notice notice-error" role="alert">{authNotice}</p>}
+    <div className="meal-planning">
+      <section className="workspace" aria-label="Meal planner workspace">
         <section className="page-heading">
           <div>
             <p className="eyebrow">MAKE ROOM FOR GOOD FOOD</p>
@@ -1029,7 +935,7 @@ export function MealPlannerDashboard({
             )}
           </section>
         </div>
-      </main>
+      </section>
       <footer className="page-footer">
         Your plans belong to your account. Meal Planner does not provide nutrition or food-safety advice.
       </footer>
