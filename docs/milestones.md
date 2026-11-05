@@ -6,6 +6,7 @@ The current assigned work is:
 - [#19 — Interactive Review](https://github.com/PolaricksX/ChopChop/issues/19)
 - [#23 — Recipe Management](https://github.com/PolaricksX/ChopChop/issues/23)
 - [#32 — Cookbook](https://github.com/PolaricksX/ChopChop/issues/32)
+- [#51 — User Equipment](https://github.com/PolaricksX/ChopChop/issues/51)
 
 Each assignment is limited to its own independently runnable services and
 their shared client/infrastructure support. Other service ownership remains
