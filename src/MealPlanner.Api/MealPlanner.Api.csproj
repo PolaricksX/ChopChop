@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
+    <ProjectReference Include="..\ChopChop.Shared\ChopChop.Shared.csproj" />
     <ProjectReference Include="..\MealPlanner.Data\MealPlanner.Data.csproj" />
     <ProjectReference Include="..\MealPlanner.Domain\MealPlanner.Domain.csproj" />
   </ItemGroup>

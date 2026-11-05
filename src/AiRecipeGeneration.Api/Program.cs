@@ -80,7 +80,8 @@ if (builder.Configuration.GetValue("BackgroundServices:Enabled", true))
     builder.Services.AddHostedService<GenerationConsumer>();
     builder.Services.AddHostedService<GenerationRecoveryWorker>();
 }
-builder.Services
+if (!builder.Services.TryAddDevelopmentAuthentication(builder.Configuration, builder.Environment))
+    builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

@@ -64,7 +64,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("review:moderate", policy =>
         policy.RequireAuthenticatedUser().RequireClaim("role", "review-moderator"));
 });
-builder.Services
+if (!builder.Services.TryAddDevelopmentAuthentication(builder.Configuration, builder.Environment))
+    builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

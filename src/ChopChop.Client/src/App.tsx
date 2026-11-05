@@ -110,7 +110,11 @@ function App() {
 
   const signIn = async () => {
     setError('')
-    await userManager.signinRedirect()
+    try {
+      await userManager.signinRedirect()
+    } catch (signInError) {
+      setError(`Sign in failed. Check that the identity provider is running and reachable: ${errorMessage(signInError)}`)
+    }
   }
 
   const signOut = async () => {
