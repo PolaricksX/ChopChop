@@ -18,8 +18,9 @@ import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import { EquipmentTab } from './equipment/EquipmentTab'
 
-type Panel = 'recipe' | 'recipes' | 'cookbook' | 'review' | 'moderation'
+type Panel = 'recipe' | 'recipes' | 'cookbook' | 'equipment' | 'review' | 'moderation'
 type RecipeView = 'browse' | 'drafts' | 'new' | 'details' | 'edit'
 
 function App() {
@@ -245,10 +246,11 @@ function App() {
         <p className="lede">Build a recipe around your idea or help the community make a good one even better.</p>
       </section>
 
-      <nav className="tabs" aria-label="Cookbook tools">
+      <nav className="tabs" aria-label="Kitchen tools">
         <button className={activePanel === 'recipe' ? 'tab active' : 'tab'} onClick={() => setActivePanel('recipe')}>AI recipe</button>
         <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
+        <button className={activePanel === 'equipment' ? 'tab active' : 'tab'} onClick={() => setActivePanel('equipment')}>Equipment</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
@@ -278,6 +280,7 @@ function App() {
       )}
 
       {activePanel === 'cookbook' && <CookbookTab />}
+      {activePanel === 'equipment' && <EquipmentTab accessToken={user.access_token} />}
 
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">
