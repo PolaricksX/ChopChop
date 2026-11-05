@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MealEntry, MealPlan } from './types'
-import { MealPlannerDashboard } from './App'
+import { MealPlannerDashboard } from './MealPlannerPanel'
 
 const firstPlan: MealPlan = {
   id: 'plan-1',
@@ -37,8 +37,6 @@ const meal: MealEntry = {
 
 const fetchMock = vi.fn<typeof fetch>()
 const sessionExpired = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
-const signOut = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
-
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -54,9 +52,7 @@ function renderDashboard() {
   return render(
     <MealPlannerDashboard
       accessToken="access-token"
-      displayName="Sean"
       onSessionExpired={sessionExpired}
-      onSignOut={signOut}
     />,
   )
 }
@@ -65,7 +61,6 @@ describe('meal planner dashboard', () => {
   beforeEach(() => {
     fetchMock.mockReset()
     sessionExpired.mockClear()
-    signOut.mockClear()
     vi.stubGlobal('fetch', fetchMock)
   })
 

@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, mealPlanApi } from './api'
-import { useAuth } from './auth-context'
 import type {
   MealDraft,
   MealEntry,
@@ -12,7 +11,7 @@ import type {
   MealSlot,
   PlanDraft,
 } from './types'
-import './App.css'
+import './meal-planning.css'
 
 const pageSize = 20
 const mealSlots: MealSlot[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
@@ -230,80 +229,12 @@ function ApiAlert({
   )
 }
 
-function AuthGate() {
-  const auth = useAuth()
-  const displayName =
-    auth.user?.profile.preferred_username ||
-    auth.user?.profile.name ||
-    auth.user?.profile.email ||
-    'your account'
-
-  if (auth.phase === 'loading') {
-    return (
-      <main className="auth-page">
-        <p role="status">Checking your sign-in…</p>
-      </main>
-    )
-  }
-
-  if (auth.user && !auth.user.expired) {
-    return (
-      <MealPlannerDashboard
-        accessToken={auth.user.access_token}
-        authNotice={auth.error}
-        onSessionExpired={auth.expireSession}
-        onSignOut={auth.signOut}
-        displayName={displayName}
-      />
-    )
-  }
-
-  return (
-    <main className="auth-page">
-      <section className="auth-card" aria-labelledby="auth-title">
-        <p className="eyebrow">CHOPCHOP · MEAL PLANNER</p>
-        <h1 id="auth-title">{auth.sessionExpired ? 'Your session expired' : 'Plan meals with confidence'}</h1>
-        <p>
-          {auth.sessionExpired
-            ? 'Sign in again to continue managing your meal plans.'
-            : 'Sign in with your ChopChop account to create and manage your plans.'}
-        </p>
-        {auth.error && <p className="notice notice-error" role="alert">{auth.error}</p>}
-        <button
-          className="button button-primary button-wide"
-          disabled={!auth.canSignIn}
-          onClick={() => void auth.signIn()}
-          type="button"
-        >
-          Sign in
-        </button>
-        {!auth.canSignIn && (
-          <p className="muted">
-            Authentication is not configured. Follow the client setup instructions to set the
-            identity provider and public client ID.
-          </p>
-        )}
-      </section>
-    </main>
-  )
-}
-
-export default function App() {
-  return <AuthGate />
-}
-
 export function MealPlannerDashboard({
   accessToken,
   onSessionExpired,
-  onSignOut,
-  displayName,
-  authNotice,
 }: {
   accessToken: string
   onSessionExpired: () => Promise<void>
-  onSignOut: () => Promise<void>
-  displayName: string
-  authNotice?: string | null
 }) {
   const [plans, setPlans] = useState<MealPlanPage>(planPageDefaults)
   const [plansLoading, setPlansLoading] = useState(true)
@@ -667,22 +598,8 @@ export function MealPlannerDashboard({
     selectedPlan?.status === 'Completed' || selectedPlan?.status === 'Cancelled'
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="ChopChop Meal Planner home">
-          <span className="brand-mark" aria-hidden="true">C</span>
-          <span>ChopChop<span className="brand-divider">/</span>Meal Planner</span>
-        </a>
-        <div className="account">
-          <span className="account-name">{displayName}</span>
-          <button className="button button-quiet" onClick={() => void onSignOut()} type="button">
-            Sign out
-          </button>
-        </div>
-      </header>
-
-      <main className="workspace">
-        {authNotice && <p className="notice notice-error" role="alert">{authNotice}</p>}
+    <div className="meal-planning-feature">
+      <section className="workspace">
         <section className="page-heading">
           <div>
             <p className="eyebrow">MAKE ROOM FOR GOOD FOOD</p>
@@ -1029,10 +946,7 @@ export function MealPlannerDashboard({
             )}
           </section>
         </div>
-      </main>
-      <footer className="page-footer">
-        Your plans belong to your account. Meal Planner does not provide nutrition or food-safety advice.
-      </footer>
+      </section>
     </div>
   )
 }

@@ -1,28 +1,20 @@
-# Meal Planning browser client
+# Meal Planning browser feature
 
-The browser application is in `src/MealPlanner.Client`. It manages meal plans
-through the versioned Meal Planner API; it does not connect to service
-databases, decide ownership, or implement server-side business rules.
-
-## Milestone alignment
-
-`copilot-instructions.md` names Milestone 1 as current, while the frontend
-agent/R-PIV guidance is labeled Milestone 2. The referenced `docs/milestones.md`
-is not present in this checkout. Issue #22 was explicitly authorized as a
-Milestone 1 exception before implementation; this is a scoped exception, not a
-change to the repository-wide milestone or authorization to add an identity
-provider or backend capability.
+Meal Planner is a feature of the authenticated ChopChop browser client in
+`src/ChopChop.Client`. It shares the ChopChop sign-in session and calls the
+versioned Meal Planner API; it does not connect to service databases, decide
+ownership, or implement server-side business rules. `ChopChop.Shared` remains
+the .NET server-side shared library.
 
 ## Local setup
 
 Use Node.js 22.12 or newer (or Node.js 24 or newer) and npm. Start the Meal
 Planner API as described in [the service guide](./meal-planner.md), allow the
-client origin through `Cors__AllowedOrigins__0`, then configure a browser
-client with the identity provider.
+client origin through `Cors__AllowedOrigins__0`, then start ChopChop:
 
 ```powershell
-Set-Location .\src\MealPlanner.Client
-Copy-Item .env.example .env.local
+Copy-Item src\ChopChop.Client\.env.example src\ChopChop.Client\.env.local
+Set-Location src\ChopChop.Client
 npm ci
 npm run dev
 ```
@@ -33,42 +25,38 @@ serves those assets locally.
 
 ## Configuration and authentication
 
-Copy `.env.example` to `.env.local` and set:
+The client uses the existing ChopChop OIDC configuration and session. Its
+`.env.local` file may override these public settings:
 
 | Variable | Purpose |
 |---|---|
-| `VITE_API_BASE_URL` | Meal Planner API origin, without `/api/v1/meal-plans`; defaults to `http://localhost:5033`. |
+| `VITE_MEAL_PLANNER_API_URL` | Meal Planner API origin, without `/api/v1/meal-plans`; defaults to `http://localhost:5033`. |
 | `VITE_OIDC_AUTHORITY` | OpenID Connect issuer; defaults to `http://localhost:8080/realms/chopchop`. |
-| `VITE_OIDC_CLIENT_ID` | Required public browser-client identifier registered with the identity provider. |
-| `VITE_OIDC_SCOPE` | Requested identity and API scopes; defaults to `openid profile email mealplans.read mealplans.write`. |
+| `VITE_OIDC_CLIENT_ID` | Public ChopChop browser-client identifier. |
 
-These are public build-time settings. Never put a client secret, password,
-private key, or other credential in a `VITE_*` variable or browser bundle. The
-current Compose file does not start an identity provider; configure the local
-provider separately. Register `http://localhost:5173/auth/callback` as a
-redirect URI and `http://localhost:5173` as a post-logout redirect URI and web
-origin. Enable authorization-code flow with PKCE (S256), and configure the
-requested API scopes and audience to match the Meal Planner API's
-`Auth:Authority` and `Auth:Audience` settings.
+ChopChop requests the `mealplans.read` and `mealplans.write` scopes during its
+normal sign-in. Configure the identity provider to grant those scopes and
+issue tokens with the audience expected by the Meal Planner API, in addition
+to the existing ChopChop API scopes. The local Compose realm may need
+identity-provider configuration changes for this API. These are public
+build-time settings: never put a client secret, password, private key, or
+other credential in a `VITE_*` variable or browser bundle.
 
-The client uses authorization code with PKCE through `oidc-client-ts`, keeps
-OIDC state and the sign-in session in `sessionStorage`, and does not request or
-use a client secret. It never collects a user's password. An expired access
-token clears the local session and prompts the user to sign in again; a `401`
-from the API does the same. A `403` remains an authorization message and does
-not silently sign the user out. The API derives ownership from the validated
-token's `sub` claim; the client never sends an owner field.
+The client keeps the OIDC session in `sessionStorage` through the existing
+`oidc-client-ts` user manager. A `401` from the Meal Planner API removes that
+session and returns the user to ChopChop's sign-in screen; a `403` remains an
+authorization error. The API derives ownership from the validated token's
+`sub` claim; the client never sends an owner field.
 
-Set `Cors__AllowedOrigins__0=http://localhost:5173` for the API, and make sure
-the identity provider allows the API origin and the configured client scopes.
-The development API's CORS allowlist must also expose `ETag` and allow
-`Authorization`, `Idempotency-Key`, `If-Match`, `Content-Type`, and
-`X-Correlation-Id`, as configured by the service.
+Set `Cors__AllowedOrigins__0` for the APIs to the actual Vite origin. If Vite
+selects another port because the default is occupied, use that origin in the
+API CORS configuration and the identity provider's allowed web origins. The
+Meal Planner API must expose `ETag` and allow `Authorization`,
+`Idempotency-Key`, `If-Match`, `Content-Type`, and `X-Correlation-Id`.
 
-## Routes and API contract
+## API contract
 
-The client has one application route (`/`) and an OIDC callback route
-(`/auth/callback`). It calls only the public versioned API:
+The feature calls only the public versioned Meal Planner API:
 
 | Operation | API route |
 |---|---|
@@ -87,40 +75,19 @@ an `Idempotency-Key`; writes include the latest plan `version`, and delete
 operations quote the latest version in `If-Match`. Version conflicts are
 reported with a refresh action; writes are not blindly retried.
 
-Meal plans use inclusive ISO calendar dates (`YYYY-MM-DD`), are limited to 366
-days, and do not undergo timezone conversion. Breakfast, Lunch, and Dinner
-allow one meal per date and slot; Snack entries are unlimited. Plan lifecycle
-transitions are `Draft -> Active -> Completed` or `Draft/Active -> Cancelled`.
-Completed and cancelled plans are read-only. Meal progress transitions are
-`Planned -> InProgress/Completed/Skipped` and
+Meal plans use inclusive ISO calendar dates (`YYYY-MM-DD`), are limited to
+366 days, and do not undergo timezone conversion. Breakfast, Lunch, and
+Dinner allow one meal per date and slot; Snack entries are unlimited. Plan
+lifecycle transitions are `Draft -> Active -> Completed` or
+`Draft/Active -> Cancelled`. Completed and cancelled plans are read-only.
+Meal progress transitions are `Planned -> InProgress/Completed/Skipped` and
 `InProgress -> Completed/Skipped`; completed and skipped meals are terminal.
-Only planned meals can be edited or removed. The UI offers only these
-transitions and explains the read-only behavior.
+Only planned meals can be edited or removed. An optional recipe reference is
+a stable recipe UUID; the client does not fetch private or cross-service data
+to resolve it.
 
-A meal title is a bounded snapshot. An optional recipe reference is a stable
-recipe UUID; the client does not fetch private or cross-service data to resolve
-it, so an unavailable recipe does not block plan management.
-
-## Failure handling and accessibility
-
-The interface has loading and empty states and surfaces API validation errors,
-expired authentication, forbidden access, missing resources, stale-version or
-duplicate-slot conflicts, rate limits, and service/network failures. It
-preserves problem-detail correlation IDs for support and does not substitute
-sample data when the API is unavailable.
-
-Forms enforce the API's name/title, date range, serving, and recipe-ID limits
-before submitting. The API remains authoritative for ownership, transitions,
-concurrency, and duplicate entries. The interface uses semantic headings,
-labels, tables, status messages, keyboard-visible focus, and responsive
-layouts.
-
-## Validation
-
-Run from `src/MealPlanner.Client`:
-
-```powershell
-npm test
-npm run build
-npm run lint
-```
+The interface surfaces API validation errors, expired authentication,
+forbidden access, missing resources, stale-version or duplicate-slot
+conflicts, rate limits, and service/network failures. It preserves
+problem-detail correlation IDs and does not substitute sample data when the
+API is unavailable.

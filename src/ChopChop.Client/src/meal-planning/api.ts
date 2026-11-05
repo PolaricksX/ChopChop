@@ -57,7 +57,7 @@ export class ApiError extends Error {
   }
 }
 
-const apiRoot = `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:5033').replace(/\/+$/, '')}/api/v1/meal-plans`
+const apiRoot = `${(import.meta.env.VITE_MEAL_PLANNER_API_URL || 'http://localhost:5033').replace(/\/+$/, '')}/api/v1/meal-plans`
 
 async function send(
   path: string,

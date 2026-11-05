@@ -1,9 +1,8 @@
 # Local Development
 
-This guide runs the assigned AI Recipe Generation, Interactive Review, Recipe
-Management, and Cookbook services with a local SQL Server, RabbitMQ, Keycloak
-realm, and React client. It also documents local User Service prerequisites
-for the separately approved profile frontend work in issue #59.
+This guide runs the AI Recipe Generation, Interactive Review, Recipe
+Management, Cookbook, User Service, and Meal Planner services with a local SQL
+Server, RabbitMQ, Keycloak realm, and unified React client.
 Do not use the development settings or credentials in a shared or production
 environment.
 
@@ -139,6 +138,20 @@ $env:Cors__AllowedOrigins__0 = "http://localhost:5173"
 dotnet run --project src\UserService.Api --launch-profile http
 ```
 
+For Meal Planner, allow the same Vite origin and start its API:
+
+```powershell
+$env:Cors__AllowedOrigins__0 = "http://localhost:5173"
+dotnet run --project src\MealPlanner.Api --launch-profile http
+```
+
+The ChopChop browser client requests `mealplans.read` and `mealplans.write`
+along with its other API scopes. Configure the local identity provider to
+grant these scopes and issue a token with the audience expected by
+`src\MealPlanner.Api`; the API rejects tokens missing that audience or scopes.
+If Vite selects a different port, use that origin in each API's CORS
+configuration and in the identity provider's allowed web origins.
+
 In another terminal:
 
 ```powershell
@@ -149,8 +162,9 @@ npm run dev
 ```
 
 The browser client defaults to API ports `5081` and `5082`, the local Keycloak
-realm URL, and the public client ID. `.env.local` may override those public
-URLs; it must never contain a client secret.
+realm URL, the public client ID, and the Meal Planner API at port `5033`.
+`.env.local` may override those public URLs; it must never contain a client
+secret.
 
 Available endpoints:
 
@@ -164,6 +178,8 @@ Available endpoints:
 - Cookbook API: `http://localhost:20860`; OpenAPI document at
   `/openapi/v1.json`; health at `/health`.
 - User Service API: `http://localhost:5199`; OpenAPI document at
+  `/openapi/v1.json`; health at `/health`.
+- Meal Planner API: `http://localhost:5033`; OpenAPI document at
   `/openapi/v1.json`; health at `/health`.
 - Keycloak: `http://localhost:8080/realms/chopchop`.
 
