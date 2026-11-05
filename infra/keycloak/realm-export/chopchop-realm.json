@@ -39,6 +39,7 @@
         "acr",
         "basic",
         "cookbook-audience",
+        "equipment-audience",
         "recipe-management-audience"
       ],
       "optionalClientScopes": [
@@ -46,6 +47,8 @@
         "recipes.write",
         "cookbook.read",
         "cookbook.write",
+        "equipment.read",
+        "equipment.write",
         "recipes.publish"
       ],
       "protocolMappers": [
@@ -466,6 +469,46 @@
           }
         }
       ]
+    },
+    {
+      "name": "equipment-audience",
+      "description": "Audience for the Equipment API",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "Equipment API audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "equipment-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "equipment.read",
+      "description": "Read caller-owned equipment",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "equipment.write",
+      "description": "Create, update, and remove caller-owned equipment",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
     },
     {
       "name": "recipes.read",
