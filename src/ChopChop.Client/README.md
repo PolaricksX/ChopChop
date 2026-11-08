@@ -7,7 +7,7 @@ code flow and PKCE. It is a public SPA and must not have a client secret.
    `http://localhost:5173/`, and its web origin as `http://localhost:5173`.
    The Vite dev command uses port `5173` with strict port selection to match.
 2. Copy `.env.example` to `.env.local` and set `VITE_AUTH0_DOMAIN`,
-   `VITE_AUTH0_CLIENT_ID`, and the four API audiences. These are public client
+   `VITE_AUTH0_CLIENT_ID`, and the API audiences you use. These are public client
    settings, not secrets. Create separate Auth0 APIs with the identifiers and
    delegated permissions documented in the
    [local development guide](../../../docs/local-development.md). Do not use
@@ -19,6 +19,10 @@ code flow and PKCE. It is a public SPA and must not have a client secret.
 4. Run `npm ci`, then `npm run dev`.
 
 The client supports recipe generation/status/confirmation, review submission
-and reading, and a moderator queue. Photos are intentionally unavailable.
+and reading, a moderator queue, cookbook management, and meal planning. Photos
+are intentionally unavailable.
+
+The [Meal Planning client guide](../../docs/meal-planning-client.md) covers the
+Meal Planner API configuration and behavior.
 
 Run `npm run build`, `npm test`, and `npm run lint` to validate client changes.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import {
@@ -18,8 +18,15 @@ import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import type { MealPlannerPermission } from './meal-planning/api'
 
-type Panel = 'recipe' | 'recipes' | 'cookbook' | 'review' | 'moderation'
+const MealPlannerDashboard = lazy(() =>
+  import('./meal-planning/MealPlannerDashboard').then(({ MealPlannerDashboard }) => ({
+    default: MealPlannerDashboard,
+  })),
+)
+
+type Panel = 'recipe' | 'recipes' | 'cookbook' | 'meal-planner' | 'review' | 'moderation'
 type RecipeView = 'browse' | 'drafts' | 'new' | 'details' | 'edit'
 
 function App() {
@@ -33,6 +40,11 @@ function App() {
     user,
   } = useAuth0()
   setTokenGetter((options) => getAccessTokenSilently(options))
+  const getMealPlannerAccessToken = useCallback(
+    (permission: MealPlannerPermission, forceRefresh = false) =>
+      getApiAccessToken('mealPlanner', permission, forceRefresh),
+    [],
+  )
   const [activePanel, setActivePanel] = useState<Panel>('recipe')
   const [recipeView, setRecipeView] = useState<RecipeView>('browse')
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
@@ -231,6 +243,7 @@ function App() {
         <button className={activePanel === 'recipe' ? 'tab active' : 'tab'} onClick={() => setActivePanel('recipe')}>AI recipe</button>
         <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
+        <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
@@ -260,6 +273,11 @@ function App() {
       )}
 
       {activePanel === 'cookbook' && <CookbookTab />}
+      {activePanel === 'meal-planner' && (
+        <Suspense fallback={<p role="status">Loading meal planning…</p>}>
+          <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
+        </Suspense>
+      )}
 
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">

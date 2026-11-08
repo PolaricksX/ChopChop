@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, mealPlanApi } from './api'
+import type { MealPlannerAccessTokenProvider } from './api'
 import type { MealDraft, MealPlan } from './types'
 
 const plan: MealPlan = {
@@ -26,9 +27,11 @@ function jsonResponse(
 
 describe('mealPlanApi', () => {
   const fetchMock = vi.fn<typeof fetch>()
+  const getAccessToken = vi.fn<MealPlannerAccessTokenProvider>()
 
   beforeEach(() => {
     fetchMock.mockReset()
+    getAccessToken.mockReset().mockResolvedValue('access-token')
     vi.stubGlobal('fetch', fetchMock)
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('11111111-1111-4111-8111-111111111111')
   })
@@ -41,7 +44,7 @@ describe('mealPlanApi', () => {
   it('creates plans with an idempotency key and never sends client ownership', async () => {
     fetchMock.mockResolvedValue(jsonResponse(plan, 201))
 
-    await mealPlanApi.createPlan('access-token', {
+    await mealPlanApi.createPlan(getAccessToken, {
       name: plan.name,
       startDate: plan.startDate,
       endDate: plan.endDate,
@@ -86,7 +89,7 @@ describe('mealPlanApi', () => {
       }, 201),
     )
 
-    await mealPlanApi.createMeal('access-token', plan, draft)
+    await mealPlanApi.createMeal(getAccessToken, plan, draft)
 
     const [url, init] = fetchMock.mock.calls[0]!
     const headers = new Headers(init?.headers)
@@ -102,7 +105,7 @@ describe('mealPlanApi', () => {
   it('quotes the latest ETag when deleting a plan', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
 
-    await mealPlanApi.deletePlan('access-token', plan.id, plan.version)
+    await mealPlanApi.deletePlan(getAccessToken, plan.id, plan.version)
 
     const [, init] = fetchMock.mock.calls[0]!
     expect(init?.method).toBe('DELETE')
@@ -120,21 +123,21 @@ describe('mealPlanApi', () => {
       })
     })
 
-    await mealPlanApi.updatePlan('access-token', plan.id, {
+    await mealPlanApi.updatePlan(getAccessToken, plan.id, {
       name: plan.name,
       startDate: plan.startDate,
       endDate: plan.endDate,
     }, plan.version)
-    await mealPlanApi.changePlanStatus('access-token', plan.id, 'Active', plan.version)
-    await mealPlanApi.updateMeal('access-token', plan, 'meal-1', {
+    await mealPlanApi.changePlanStatus(getAccessToken, plan.id, 'Active', plan.version)
+    await mealPlanApi.updateMeal(getAccessToken, plan, 'meal-1', {
       date: '2026-11-02',
       slot: 'Lunch',
       title: 'Soup',
       recipeId: '',
       servings: 3,
     })
-    await mealPlanApi.changeMealStatus('access-token', plan, 'meal-1', 'Completed')
-    await mealPlanApi.deleteMeal('access-token', plan, 'meal-1')
+    await mealPlanApi.changeMealStatus(getAccessToken, plan, 'meal-1', 'Completed')
+    await mealPlanApi.deleteMeal(getAccessToken, plan, 'meal-1')
 
     const calls = fetchMock.mock.calls
     expect(calls.map(([, init]) => init?.method)).toEqual([
@@ -171,7 +174,7 @@ describe('mealPlanApi', () => {
       ),
     )
 
-    const request = mealPlanApi.getPlan('access-token', plan.id)
+    const request = mealPlanApi.getPlan(getAccessToken, plan.id)
     await expect(request).rejects.toBeInstanceOf(ApiError)
     await expect(request).rejects.toMatchObject({
       status: 429,
@@ -190,7 +193,7 @@ describe('mealPlanApi', () => {
         jsonResponse({ title: `HTTP ${status}`, detail: 'Request was not completed.' }, status),
       )
 
-      await expect(mealPlanApi.getPlan('access-token', plan.id)).rejects.toMatchObject({
+      await expect(mealPlanApi.getPlan(getAccessToken, plan.id)).rejects.toMatchObject({
         status,
         message: 'Request was not completed.',
       })
@@ -202,10 +205,30 @@ describe('mealPlanApi', () => {
       jsonResponse({ items: [], page: 2, pageSize: 20, totalCount: 0 }),
     )
 
-    await mealPlanApi.listMeals('access-token', plan.id, 2, 20, '2026-11-03')
+    await mealPlanApi.listMeals(getAccessToken, plan.id, 2, 20, '2026-11-03')
 
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
       `/api/v1/meal-plans/${plan.id}/meals?page=2&pageSize=20&date=2026-11-03`,
     )
+  })
+
+  it('retries unauthorized requests once with a refreshed token and the same scope', async () => {
+    getAccessToken
+      .mockResolvedValueOnce('expired-token')
+      .mockResolvedValueOnce('fresh-token')
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ title: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse(plan))
+
+    await mealPlanApi.getPlan(getAccessToken, plan.id)
+
+    expect(getAccessToken.mock.calls).toEqual([
+      ['mealplans.read'],
+      ['mealplans.read', true],
+    ])
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('Authorization'))
+      .toBe('Bearer expired-token')
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('Authorization'))
+      .toBe('Bearer fresh-token')
   })
 })

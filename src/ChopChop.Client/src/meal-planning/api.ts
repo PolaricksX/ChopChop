@@ -57,13 +57,21 @@ export class ApiError extends Error {
   }
 }
 
-const apiRoot = `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:5033').replace(/\/+$/, '')}/api/v1/meal-plans`
+export type MealPlannerPermission = 'mealplans.read' | 'mealplans.write'
+export type MealPlannerAccessTokenProvider = (
+  permission: MealPlannerPermission,
+  forceRefresh?: boolean,
+) => Promise<string>
+
+const apiRoot = `${(import.meta.env.VITE_MEAL_PLANNER_API_URL || 'http://localhost:5033').replace(/\/+$/, '')}/api/v1/meal-plans`
 
 async function send(
   path: string,
-  accessToken: string,
+  getAccessToken: MealPlannerAccessTokenProvider,
+  permission: MealPlannerPermission,
   init: RequestInit = {},
 ): Promise<Response> {
+  const accessToken = await getAccessToken(permission)
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json, application/problem+json')
   headers.set('Authorization', `Bearer ${accessToken}`)
@@ -79,7 +87,22 @@ async function send(
     credentials: 'omit',
     cache: 'no-store',
   })
+  if (response.status === 401) {
+    const requestHeaders = new Headers(headers)
+    requestHeaders.set('Authorization', `Bearer ${await getAccessToken(permission, true)}`)
+    const refreshedResponse = await fetch(`${apiRoot}${path}`, {
+      ...init,
+      headers: requestHeaders,
+      credentials: 'omit',
+      cache: 'no-store',
+    })
+    return handleResponse(refreshedResponse)
+  }
 
+  return handleResponse(response)
+}
+
+async function handleResponse(response: Response): Promise<Response> {
   if (!response.ok) {
     const raw = await response.text()
     let problem: ProblemDetails = {}
@@ -116,10 +139,11 @@ async function send(
 
 async function sendJson<T>(
   path: string,
-  accessToken: string,
+  getAccessToken: MealPlannerAccessTokenProvider,
+  permission: MealPlannerPermission,
   init: RequestInit = {},
 ): Promise<T> {
-  const response = await send(path, accessToken, init)
+  const response = await send(path, getAccessToken, permission, init)
   try {
     return (await response.json()) as T
   } catch {
@@ -142,58 +166,61 @@ function encodedId(id: string): string {
 }
 
 export const mealPlanApi = {
-  listPlans(accessToken: string, page: number, pageSize: number): Promise<MealPlanPage> {
+  listPlans(getAccessToken: MealPlannerAccessTokenProvider, page: number, pageSize: number): Promise<MealPlanPage> {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
-    return sendJson(`?${query}`, accessToken)
+    return sendJson(`?${query}`, getAccessToken, 'mealplans.read')
   },
 
-  getPlan(accessToken: string, planId: string): Promise<MealPlan> {
-    return sendJson(`/${encodedId(planId)}`, accessToken)
+  getPlan(getAccessToken: MealPlannerAccessTokenProvider, planId: string): Promise<MealPlan> {
+    return sendJson(`/${encodedId(planId)}`, getAccessToken, 'mealplans.read')
   },
 
-  createPlan(accessToken: string, draft: PlanDraft): Promise<MealPlan> {
+  createPlan(getAccessToken: MealPlannerAccessTokenProvider, draft: PlanDraft): Promise<MealPlan> {
     return sendJson(
       '',
-      accessToken,
+      getAccessToken,
+      'mealplans.write',
       jsonBody('POST', draft, { 'Idempotency-Key': crypto.randomUUID() }),
     )
   },
 
   updatePlan(
-    accessToken: string,
+    getAccessToken: MealPlannerAccessTokenProvider,
     planId: string,
     draft: PlanDraft,
     version: string,
   ): Promise<MealPlan> {
     return sendJson(
       `/${encodedId(planId)}`,
-      accessToken,
+      getAccessToken,
+      'mealplans.write',
       jsonBody('PUT', { ...draft, version }),
     )
   },
 
   changePlanStatus(
-    accessToken: string,
+    getAccessToken: MealPlannerAccessTokenProvider,
     planId: string,
     status: MealPlanStatus,
     version: string,
   ): Promise<MealPlan> {
     return sendJson(
       `/${encodedId(planId)}/status`,
-      accessToken,
+      getAccessToken,
+      'mealplans.write',
       jsonBody('PATCH', { status, version }),
     )
   },
 
-  async deletePlan(accessToken: string, planId: string, version: string): Promise<void> {
-    await send(`/${encodedId(planId)}`, accessToken, {
+  async deletePlan(getAccessToken: MealPlannerAccessTokenProvider, planId: string, version: string): Promise<void> {
+    await send(`/${encodedId(planId)}`, getAccessToken, 'mealplans.write', {
       method: 'DELETE',
       headers: { 'If-Match': `"${version}"` },
     })
   },
 
   listMeals(
-    accessToken: string,
+    getAccessToken: MealPlannerAccessTokenProvider,
     planId: string,
     page: number,
     pageSize: number,
@@ -203,13 +230,14 @@ export const mealPlanApi = {
     if (date) {
       query.set('date', date)
     }
-    return sendJson(`/${encodedId(planId)}/meals?${query}`, accessToken)
+    return sendJson(`/${encodedId(planId)}/meals?${query}`, getAccessToken, 'mealplans.read')
   },
 
-  createMeal(accessToken: string, plan: MealPlan, draft: MealDraft): Promise<MealEntry> {
+  createMeal(getAccessToken: MealPlannerAccessTokenProvider, plan: MealPlan, draft: MealDraft): Promise<MealEntry> {
     return sendJson(
       `/${encodedId(plan.id)}/meals`,
-      accessToken,
+      getAccessToken,
+      'mealplans.write',
       jsonBody(
         'POST',
         {
@@ -223,14 +251,15 @@ export const mealPlanApi = {
   },
 
   updateMeal(
-    accessToken: string,
+    getAccessToken: MealPlannerAccessTokenProvider,
     plan: MealPlan,
     mealId: string,
     draft: MealDraft,
   ): Promise<MealEntry> {
     return sendJson(
       `/${encodedId(plan.id)}/meals/${encodedId(mealId)}`,
-      accessToken,
+      getAccessToken,
+      'mealplans.write',
       jsonBody('PUT', {
         ...draft,
         recipeId: draft.recipeId || null,
@@ -240,26 +269,28 @@ export const mealPlanApi = {
   },
 
   changeMealStatus(
-    accessToken: string,
+    getAccessToken: MealPlannerAccessTokenProvider,
     plan: MealPlan,
     mealId: string,
     status: MealEntryStatus,
   ): Promise<MealEntry> {
     return sendJson(
       `/${encodedId(plan.id)}/meals/${encodedId(mealId)}/status`,
-      accessToken,
+      getAccessToken,
+      'mealplans.write',
       jsonBody('PATCH', { status, version: plan.version }),
     )
   },
 
   async deleteMeal(
-    accessToken: string,
+    getAccessToken: MealPlannerAccessTokenProvider,
     plan: MealPlan,
     mealId: string,
   ): Promise<void> {
     await send(
       `/${encodedId(plan.id)}/meals/${encodedId(mealId)}`,
-      accessToken,
+      getAccessToken,
+      'mealplans.write',
       {
         method: 'DELETE',
         headers: { 'If-Match': `"${plan.version}"` },

@@ -11,6 +11,7 @@ describe('Auth0 API access tokens', () => {
     vi.stubEnv('VITE_AUTH0_INTERACTIVE_REVIEW_AUDIENCE', 'https://api.chopchop.local/interactive-review')
     vi.stubEnv('VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE', 'https://api.chopchop.local/recipe-management')
     vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
+    vi.stubEnv('VITE_AUTH0_MEAL_PLANNER_AUDIENCE', 'https://api.chopchop.local/meal-planner')
   })
 
   afterEach(() => vi.unstubAllEnvs())
@@ -52,6 +53,24 @@ describe('Auth0 API access tokens', () => {
       authorizationParams: {
         audience: 'https://api.chopchop.local/cookbook',
         scope: 'cookbook.read',
+      },
+    })
+  })
+
+  it('requests least-privilege Meal Planner API permissions from the shared Auth0 client', async () => {
+    await getApiAccessToken('mealPlanner', 'mealplans.read')
+    await getApiAccessToken('mealPlanner', 'mealplans.write')
+
+    expect(tokenGetter).toHaveBeenNthCalledWith(1, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/meal-planner',
+        scope: 'mealplans.read',
+      },
+    })
+    expect(tokenGetter).toHaveBeenNthCalledWith(2, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/meal-planner',
+        scope: 'mealplans.write',
       },
     })
   })
