@@ -22,7 +22,9 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "http://localhost:5173/auth/callback"
+        "http://localhost:5173/",
+        "http://localhost:5173/auth/callback",
+        "http://localhost:5173/auth/silent-callback"
       ],
       "webOrigins": [
         "http://localhost:5173"
@@ -562,6 +564,46 @@
     {
       "name": "cookbook.read",
       "description": "Read cookbook data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "pantry-audience",
+      "description": "Audience for the Pantry API",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "Pantry API audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "pantry-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pantry.read",
+      "description": "Read pantry data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "pantry.write",
+      "description": "Create and update pantry data",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",

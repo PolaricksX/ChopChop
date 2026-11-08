@@ -15,6 +15,8 @@
   [docs/local-development.md](docs/local-development.md) and
   [docs/api-contracts.md](docs/api-contracts.md). The .NET solution and React
   client live under `src/` (client: `src/ChopChop.Client`).
+  Pantry is in `src/Pantry.*`, with tests in `tests/Pantry.Tests`; see
+  [docs/pantry.md](docs/pantry.md).
 
 ## Repository structure
 
