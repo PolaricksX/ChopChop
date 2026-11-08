@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { userManager } from '../auth'
+import { getApiAccessToken } from '../auth'
 import { createFolder, deleteFolder, listFolders } from './api'
 
 vi.mock('../auth', () => ({
-  userManager: { getUser: vi.fn(), signinSilent: vi.fn() },
+  getApiAccessToken: vi.fn(),
 }))
 
 describe('Cookbook API', () => {
   beforeEach(() => {
-    vi.mocked(userManager.getUser).mockResolvedValue({ access_token: 'token' } as never)
-    vi.mocked(userManager.signinSilent).mockResolvedValue({ access_token: 'renewed' } as never)
+    vi.mocked(getApiAccessToken).mockResolvedValue('token')
     vi.stubGlobal('fetch', vi.fn())
   })
 
@@ -21,12 +20,12 @@ describe('Cookbook API', () => {
     expect((request.headers as Headers).has('Idempotency-Key')).toBe(false)
   })
 
-  it('renews once and retries a 401', async () => {
+  it('requests a fresh audience-specific token once and retries a 401', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
     await listFolders()
-    expect(userManager.signinSilent).toHaveBeenCalledOnce()
+    expect(getApiAccessToken).toHaveBeenNthCalledWith(2, 'cookbook', 'cookbook.read', true)
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 

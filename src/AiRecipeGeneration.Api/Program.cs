@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using AiRecipeGeneration.Api.Contracts;
+using AiRecipeGeneration.Api.Infrastructure;
 using AiRecipeGeneration.Api.Services;
 using AiRecipeGeneration.Data;
 using AiRecipeGeneration.Data.Context;
@@ -9,6 +10,7 @@ using AiRecipeGeneration.Data.Messaging;
 using AiRecipeGeneration.Data.Providers;
 using ChopChop.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -101,9 +103,16 @@ builder.Services
     });
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("recipe:create", policy => policy.RequireAuthenticatedUser());
-    options.AddPolicy("recipe:read", policy => policy.RequireAuthenticatedUser());
-    options.AddPolicy("recipe:confirm", policy => policy.RequireAuthenticatedUser());
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    options.AddPolicy(Policies.GenerationCreate, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context =>
+            context.User.HasScope(Policies.GenerationCreate)));
+    options.AddPolicy(Policies.GenerationRead, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context =>
+            context.User.HasScope(Policies.GenerationRead)));
+    options.AddPolicy(Policies.GenerationConfirm, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context =>
+            context.User.HasScope(Policies.GenerationConfirm)));
 });
 
 var app = builder.Build();
@@ -159,7 +168,7 @@ app.MapPost("/api/recipe-generations", async (
             return Results.Conflict(new { error = "Idempotency key was already used with a different request." });
         }
     })
-    .RequireAuthorization("recipe:create")
+    .RequireAuthorization(Policies.GenerationCreate)
     .RequireRateLimiting("recipe-generations");
 app.MapGet("/api/recipe-generations/{id:guid}", async (
         Guid id,
@@ -173,7 +182,7 @@ app.MapGet("/api/recipe-generations/{id:guid}", async (
         var response = await service.GetOwnedAsync(id, ownerId, cancellationToken);
         return response is null ? Results.NotFound() : Results.Ok(response);
     })
-    .RequireAuthorization("recipe:read");
+    .RequireAuthorization(Policies.GenerationRead);
 app.MapPost("/api/recipe-generations/{id:guid}/confirm", async (
         Guid id,
         HttpContext context,
@@ -198,7 +207,7 @@ app.MapPost("/api/recipe-generations/{id:guid}/confirm", async (
             return Results.Conflict(new { error = exception.Message });
         }
     })
-    .RequireAuthorization("recipe:confirm");
+    .RequireAuthorization(Policies.GenerationConfirm);
 app.Run();
 
 public sealed class DatabaseHealthCheck(AiRecipeDbContext dbContext) : Microsoft.Extensions.Diagnostics.HealthChecks.IHealthCheck

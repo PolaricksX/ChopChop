@@ -11,10 +11,10 @@ public static class Policies
 
 public static class ScopeClaims
 {
-    /// <summary>Reads space-delimited <c>scope</c> and <c>scp</c> claims.</summary>
+    /// <summary>Reads OAuth scope claims and Auth0 RBAC permission claims.</summary>
     public static bool HasScope(ClaimsPrincipal user, string scope) =>
         user.Claims
-            .Where(claim => claim.Type is "scope" or "scp")
+            .Where(claim => claim.Type is "scope" or "scp" or "permissions")
             .SelectMany(claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Contains(scope, StringComparer.Ordinal);
 }

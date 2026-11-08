@@ -1,8 +1,10 @@
-# Meal Planning browser client
+# Meal Planning in ChopChop
 
-The browser application is in `src/MealPlanner.Client`. It manages meal plans
-through the versioned Meal Planner API; it does not connect to service
-databases, decide ownership, or implement server-side business rules.
+Meal planning is part of the unified React application in
+`src/ChopChop.Client`, available from its **Meal Plans** tab. It uses the
+shared ChopChop Auth0 session and calls the versioned Meal Planner API; it does
+not connect to service databases, decide ownership, or implement server-side
+business rules.
 
 ## Milestone alignment
 
@@ -16,48 +18,42 @@ provider or backend capability.
 ## Local setup
 
 Use Node.js 22.12 or newer (or Node.js 24 or newer) and npm. Start the Meal
-Planner API as described in [the service guide](./meal-planner.md), allow the
-client origin through `Cors__AllowedOrigins__0`, then configure a browser
-client with the identity provider.
+Planner API as described in [the service guide](./meal-planner.md), and allow
+the ChopChop client origin through `Cors__AllowedOrigins__0`.
 
 ```powershell
-Set-Location .\src\MealPlanner.Client
-Copy-Item .env.example .env.local
+Copy-Item src\ChopChop.Client\.env.example src\ChopChop.Client\.env.local
+Set-Location src\ChopChop.Client
 npm ci
 npm run dev
 ```
 
-The development server is normally available at `http://localhost:5173`.
-`npm run build` creates the production assets in `dist`; `npm run preview`
-serves those assets locally.
+The development server is available at `http://localhost:5173`. See the
+[ChopChop client guide](../src/ChopChop.Client/README.md) for shared Auth0
+setup. The Meal Planner API audience must be configured as described in the
+[local development guide](./local-development.md).
 
 ## Configuration and authentication
 
-Copy `.env.example` to `.env.local` and set:
+Set these public values in `src/ChopChop.Client/.env.local`:
 
 | Variable | Purpose |
 |---|---|
-| `VITE_API_BASE_URL` | Meal Planner API origin, without `/api/v1/meal-plans`; defaults to `http://localhost:5033`. |
-| `VITE_OIDC_AUTHORITY` | OpenID Connect issuer; defaults to `http://localhost:8080/realms/chopchop`. |
-| `VITE_OIDC_CLIENT_ID` | Required public browser-client identifier registered with the identity provider. |
-| `VITE_OIDC_SCOPE` | Requested identity and API scopes; defaults to `openid profile email mealplans.read mealplans.write`. |
+| `VITE_MEAL_PLANNER_API_URL` | Meal Planner API origin, without `/api/v1/meal-plans`; defaults to `http://localhost:5033`. |
+| `VITE_AUTH0_MEAL_PLANNER_AUDIENCE` | Meal Planner API audience; defaults in `.env.example` to `https://api.chopchop.local/meal-planner`. |
+
+The unified app uses the Auth0 SPA and its authorization-code flow with PKCE.
+Configure its callback/logout URLs and web origin as described in the
+[ChopChop client guide](../src/ChopChop.Client/README.md). In Auth0, enable
+the Meal Planner API's `mealplans.read` and `mealplans.write` delegated
+permissions and assign them only to the appropriate user roles. The app
+requests the read or write permission needed for each operation and retries a
+401 once with a fresh token.
 
 These are public build-time settings. Never put a client secret, password,
 private key, or other credential in a `VITE_*` variable or browser bundle. The
-current Compose file does not start an identity provider; configure the local
-provider separately. Register `http://localhost:5173/auth/callback` as a
-redirect URI and `http://localhost:5173` as a post-logout redirect URI and web
-origin. Enable authorization-code flow with PKCE (S256), and configure the
-requested API scopes and audience to match the Meal Planner API's
-`Auth:Authority` and `Auth:Audience` settings.
-
-The client uses authorization code with PKCE through `oidc-client-ts`, keeps
-OIDC state and the sign-in session in `sessionStorage`, and does not request or
-use a client secret. It never collects a user's password. An expired access
-token clears the local session and prompts the user to sign in again; a `401`
-from the API does the same. A `403` remains an authorization message and does
-not silently sign the user out. The API derives ownership from the validated
-token's `sub` claim; the client never sends an owner field.
+API derives ownership from the validated token's `sub` claim; the client never
+sends an owner field.
 
 Set `Cors__AllowedOrigins__0=http://localhost:5173` for the API, and make sure
 the identity provider allows the API origin and the configured client scopes.
@@ -67,8 +63,8 @@ The development API's CORS allowlist must also expose `ETag` and allow
 
 ## Routes and API contract
 
-The client has one application route (`/`) and an OIDC callback route
-(`/auth/callback`). It calls only the public versioned API:
+Meal planning is available inside the unified app at `/` after signing in. It
+calls only the public versioned Meal Planner API:
 
 | Operation | API route |
 |---|---|
@@ -117,7 +113,7 @@ layouts.
 
 ## Validation
 
-Run from `src/MealPlanner.Client`:
+Run from `src/ChopChop.Client`:
 
 ```powershell
 npm test
