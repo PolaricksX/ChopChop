@@ -23,6 +23,10 @@ export type ApiPermission =
 
 let tokenGetter: TokenGetter | undefined
 
+export function isDevelopmentAuthEnabled() {
+  return import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH === 'true'
+}
+
 export function setTokenGetter(getter: TokenGetter) {
   tokenGetter = getter
 }
@@ -57,6 +61,9 @@ export async function getApiAccessToken(
   const { audience, permissions } = apiAuth[api]
   if (!permissions.includes(permission)) {
     throw new Error(`Permission ${permission} is not valid for the ${api} API.`)
+  }
+  if (isDevelopmentAuthEnabled()) {
+    return 'development-mode'
   }
   if (!audience) {
     const envVariable = {

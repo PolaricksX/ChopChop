@@ -28,6 +28,7 @@ describe('App authentication gate', () => {
   })
 
   beforeEach(() => {
+    vi.stubEnv('VITE_DEV_AUTH', 'false')
     authState.loginWithRedirect.mockReset()
     authState.getAccessTokenSilently.mockReset().mockResolvedValue('access-token')
     authState.isAuthenticated = false
@@ -46,6 +47,15 @@ describe('App authentication gate', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in to continue' }))
 
     expect(authState.loginWithRedirect).toHaveBeenCalledOnce()
+  })
+
+  it('opens the app without Auth0 when local development auth is enabled', async () => {
+    vi.stubEnv('VITE_DEV_AUTH', 'true')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Create a recipe draft' })).toBeInTheDocument()
+    expect(screen.getByText('Development mode')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in to continue' })).toBeNull()
   })
 
   it('opens meal planning within the shared authenticated client', async () => {

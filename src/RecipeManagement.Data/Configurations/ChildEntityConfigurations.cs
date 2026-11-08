@@ -11,8 +11,8 @@ public sealed class IngredientConfiguration : IEntityTypeConfiguration<Ingredien
         entity.ToTable("Ingredients");
         entity.Property<Guid>("RecipeId").IsRequired();
         entity.Property<int>("Version").IsRequired();
-        entity.Property<int>("Position").IsRequired();
-        entity.HasKey("RecipeId", "Version", "Position");
+        entity.Property(x => x.Position).IsRequired();
+        entity.HasKey("RecipeId", "Version", nameof(Ingredient.Position));
         entity.Property(x => x.Name).HasMaxLength(200).IsRequired(); entity.Property(x => x.Unit).HasMaxLength(50).IsRequired();
         entity.Property(x => x.Quantity).HasPrecision(18, 3);
     }
@@ -37,8 +37,8 @@ public sealed class EquipmentRequirementConfiguration : IEntityTypeConfiguration
         entity.ToTable("EquipmentRequirements");
         entity.Property<Guid>("RecipeId").IsRequired();
         entity.Property<int>("Version").IsRequired();
-        entity.Property<int>("Position").IsRequired();
-        entity.HasKey("RecipeId", "Version", "Position");
+        entity.Property(x => x.Position).IsRequired();
+        entity.HasKey("RecipeId", "Version", nameof(EquipmentRequirement.Position));
         entity.Property(x => x.Name).HasMaxLength(200).IsRequired(); entity.Property(x => x.MatchingMetadata).HasMaxLength(500);
     }
 }

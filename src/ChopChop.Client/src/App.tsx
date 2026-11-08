@@ -11,7 +11,7 @@ import {
   moderateReview,
 } from './api'
 import type { Generation, Review } from './api'
-import { getApiAccessToken, setTokenGetter } from './auth'
+import { getApiAccessToken, isDevelopmentAuthEnabled, setTokenGetter } from './auth'
 import './App.css'
 import { RecipeDetails } from './recipes/RecipeDetails'
 import { RecipeDrafts } from './recipes/RecipeDrafts'
@@ -33,12 +33,15 @@ function App() {
   const {
     error: authError,
     getAccessTokenSilently,
-    isAuthenticated,
-    isLoading: authLoading,
+    isAuthenticated: isAuth0Authenticated,
+    isLoading: isAuth0Loading,
     loginWithRedirect,
     logout,
     user,
   } = useAuth0()
+  const developmentAuthEnabled = isDevelopmentAuthEnabled()
+  const isAuthenticated = developmentAuthEnabled || isAuth0Authenticated
+  const authLoading = !developmentAuthEnabled && isAuth0Loading
   setTokenGetter((options) => getAccessTokenSilently(options))
   const getMealPlannerAccessToken = useCallback(
     (permission: MealPlannerPermission, forceRefresh = false) =>
@@ -228,8 +231,10 @@ function App() {
       <header className="topbar">
         <a className="brand" href="/">chop<span>chop</span></a>
         <div className="account">
-          <span>{user?.name ?? user?.nickname ?? 'Signed in'}</span>
-          <button className="quiet" onClick={signOut}>Sign out</button>
+          <span>{developmentAuthEnabled ? 'Development user' : user?.name ?? user?.nickname ?? 'Signed in'}</span>
+          {developmentAuthEnabled
+            ? <span className="quiet">Development mode</span>
+            : <button className="quiet" onClick={signOut}>Sign out</button>}
         </div>
       </header>
 

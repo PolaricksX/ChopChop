@@ -4,8 +4,10 @@ import type { PublishedRecipe } from './types'
 import { listFolders, saveRecipe, CookbookApiError } from '../cookbook/api'
 import type { Folder } from '../cookbook/types'
 import { useAuth0 } from '@auth0/auth0-react'
+import { isDevelopmentAuthEnabled } from '../auth'
 export function RecipeDetails({ recipeId, onBack }: { recipeId: string; onBack?: () => void }) {
-  const { isAuthenticated } = useAuth0()
+  const { isAuthenticated: isAuth0Authenticated } = useAuth0()
+  const isAuthenticated = isDevelopmentAuthEnabled() || isAuth0Authenticated
   const [recipe, setRecipe] = useState<PublishedRecipe | null>(null); const [error, setError] = useState('');
   const [folders, setFolders] = useState<Folder[]>([]); const [folderId, setFolderId] = useState(''); const [saveMessage, setSaveMessage] = useState(''); const [saving, setSaving] = useState(false)
   useEffect(() => { getPublishedRecipe(recipeId).then(setRecipe).catch((e: unknown) => setError(e instanceof RecipeApiError ? e.message : 'Recipe could not be loaded.')) }, [recipeId])

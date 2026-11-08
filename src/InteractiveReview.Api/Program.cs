@@ -75,25 +75,29 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
             context.User.HasScope(Policies.ReviewsModerate)));
 });
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = builder.Configuration["Auth:Authority"]
-            ?? throw new InvalidOperationException("Auth:Authority is required.");
-        options.Audience = builder.Configuration["Auth:Audience"]
-            ?? throw new InvalidOperationException("Auth:Audience is required.");
-        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-        options.MapInboundClaims = false;
-        options.TokenValidationParameters = new TokenValidationParameters
+if (!ChopChop.Shared.DevelopmentAuthentication.AddIfEnabled(
+        builder.Services, builder.Configuration, builder.Environment))
+{
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            NameClaimType = "preferred_username"
-        };
-    });
+            options.Authority = builder.Configuration["Auth:Authority"]
+                ?? throw new InvalidOperationException("Auth:Authority is required.");
+            options.Audience = builder.Configuration["Auth:Audience"]
+                ?? throw new InvalidOperationException("Auth:Audience is required.");
+            options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                NameClaimType = "preferred_username"
+            };
+        });
+}
 
 var app = builder.Build();
 app.UseExceptionHandler();

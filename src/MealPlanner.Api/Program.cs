@@ -30,12 +30,16 @@ builder.Services.AddMealPlannerData(provider =>
     provider.GetRequiredService<IConfiguration>().GetConnectionString("ChopChop")
     ?? throw new InvalidOperationException("ConnectionStrings:ChopChop is not configured."));
 
-builder.Services.AddOptions<AuthOptions>()
-    .BindConfiguration("Auth")
-    .Validate(AuthOptions.IsValid, "Auth:Authority (absolute URI) and Auth:Audience must be configured.")
-    .ValidateOnStart();
-builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+if (!global::ChopChop.Shared.DevelopmentAuthentication.AddIfEnabled(
+        builder.Services, builder.Configuration, builder.Environment))
+{
+    builder.Services.AddOptions<AuthOptions>()
+        .BindConfiguration("Auth")
+        .Validate(AuthOptions.IsValid, "Auth:Authority (absolute URI) and Auth:Audience must be configured.")
+        .ValidateOnStart();
+    builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+}
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
     .AddPolicy(Policies.MealPlansRead, policy => policy.RequireAuthenticatedUser()

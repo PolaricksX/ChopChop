@@ -1,9 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using InteractiveReview.Api.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +24,21 @@ public sealed class AuthenticationTests
         using var response = await client.GetAsync("/api/moderation/reviews");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DevelopmentAuthMode_AllowsProtectedOperationsWithoutBearerTokens()
+    {
+        using var factory = new ApiFactory().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Development");
+            builder.UseSetting("Auth:DevelopmentMode", "true");
+        });
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/moderation/reviews?limit=101");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -125,6 +142,17 @@ public sealed class AuthenticationTests
 
     private sealed class ApiFactory : WebApplicationFactory<Program>
     {
+        public HttpRequestMessage Request(HttpMethod method, string path, string? token)
+        {
+            var request = new HttpRequestMessage(method, path);
+            if (token is not null)
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            return request;
+        }
+
         protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
         {
             builder.ConfigureAppConfiguration((_, configuration) =>

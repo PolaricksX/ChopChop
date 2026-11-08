@@ -1,0 +1,53 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD in .env.test}
+    ports:
+      - "127.0.0.1:1434:1433"
+    volumes:
+      - chopchop-test-sql-data:/var/opt/mssql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: chopchop_test
+      RABBITMQ_DEFAULT_PASS: ${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD in .env.test}
+    ports:
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15673:15672"
+    volumes:
+      - chopchop-test-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  seed:
+    build:
+      context: .
+      dockerfile: tools/ChopChop.Database.Seeder/Dockerfile
+    environment:
+      TEST_DB_PASSWORD: ${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD in .env.test}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  chopchop-test-sql-data:
+    name: chopchop-test-sql-data
+  chopchop-test-rabbitmq-data:
+    name: chopchop-test-rabbitmq-data

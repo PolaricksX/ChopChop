@@ -40,13 +40,17 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<EquipmentApplicationService>();
-builder.Services.AddOptions<AuthOptions>()
-    .BindConfiguration(AuthOptions.SectionName)
-    .Validate(options => AuthOptions.IsValid(options, builder.Environment.IsDevelopment()),
-        "Auth:Authority must be HTTPS outside Development; issuer, audience, HTTPS metadata, and supported algorithms must be valid.")
-    .ValidateOnStart();
-builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+if (!ChopChop.Shared.DevelopmentAuthentication.AddIfEnabled(
+        builder.Services, builder.Configuration, builder.Environment))
+{
+    builder.Services.AddOptions<AuthOptions>()
+        .BindConfiguration(AuthOptions.SectionName)
+        .Validate(options => AuthOptions.IsValid(options, builder.Environment.IsDevelopment()),
+            "Auth:Authority must be HTTPS outside Development; issuer, audience, HTTPS metadata, and supported algorithms must be valid.")
+        .ValidateOnStart();
+    builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+}
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddProblemDetails(options =>

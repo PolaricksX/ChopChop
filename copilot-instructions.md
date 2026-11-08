@@ -459,20 +459,29 @@ public async Task HandleAsync(
 
 Apply these rules from Milestone 1, including real bearer-token validation,
 rate limiting, CORS and header hardening, and the threat model. Configure the
-identity provider per environment; do not bypass authentication in development.
+identity provider per environment. Authentication remains enabled in
+development unless the explicit local test mode below is enabled.
 
 - **Authentication:** Configure ASP.NET Core's framework JWT bearer handler
   against the environment-configured authority/issuer and the API's expected
   audience. Require a valid signature, issuer, audience, and expiry; use
   supported signing algorithms and standard OIDC metadata/key rotation. Never
   treat decoding a JWT as validation, hand-roll token validation, accept
-  bearer tokens from query strings, or use a permissive development
-  authentication handler. Keep authority and audience configurable per
-  environment. Run `UseAuthentication` before `UseAuthorization`. Apply a
+  bearer tokens from query strings, or add an alternate development handler
+  outside the shared local test mode. Keep authority and audience configurable
+  per environment. Run `UseAuthentication` before `UseAuthorization`. Apply a
   fallback policy that requires authentication, and mark public endpoints
-  explicitly. Derive the current user only from validated token claims through
-  `ICurrentUser`; never trust identity or owner values supplied separately in
-  request bodies or headers.
+  explicitly. Derive the current user only from the authenticated principal
+  through `ICurrentUser`; never trust identity or owner values supplied
+  separately in request bodies or headers.
+- **Local test authentication:** `Auth:DevelopmentMode=true` may be enabled
+  only when `ASPNETCORE_ENVIRONMENT=Development`. It supplies a fixed local
+  test identity with all API scopes and skips bearer-token validation. The
+  shared authentication setup must fail startup if this mode is enabled in any
+  other environment. It is off by default and must never be enabled on a shared
+  or production host. The browser clients may skip sign-in only in Vite
+  development mode with `VITE_DEV_AUTH=true`; production builds must ignore
+  that flag.
 - **Interactive clients:** Use the authorization-code flow with PKCE for
   browser and other public clients. The API never collects identity-provider
   passwords. Never embed client secrets in browser or mobile applications.

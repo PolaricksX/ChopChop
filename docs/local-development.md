@@ -26,6 +26,34 @@ environment.
    moderation, assign the `review-moderator` realm role to a local test user
    from the Keycloak admin console.
 
+## Optional: skip sign-in for local testing
+
+The APIs and browser clients support a local-only test identity. It has a fixed
+subject (`00000000-0000-0000-0000-000000000001`) and bypasses API authorization
+policies, so all local data created in this mode belongs to the same test user.
+Do not expose these services to a shared or production environment while this
+mode is on.
+
+Set these variables in the terminals that start the APIs and browser client:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+$env:Auth__DevelopmentMode = "true"
+$env:VITE_DEV_AUTH = "true"
+```
+
+Then start the API and React projects as usual. `Auth__DevelopmentMode` enables
+the API test identity and skips bearer-token validation; `VITE_DEV_AUTH` skips
+browser sign-in and sends a local placeholder token. The API accepts it only
+when its own test mode is enabled. Both settings are off by default, and APIs
+fail startup if the test mode is enabled outside `Development`. To return to
+normal authentication, close those terminals or remove the variables:
+
+```powershell
+Remove-Item Env:Auth__DevelopmentMode -ErrorAction SilentlyContinue
+Remove-Item Env:VITE_DEV_AUTH -ErrorAction SilentlyContinue
+```
+
 ## 2. Configure local secrets
 
 Set `ASPNETCORE_ENVIRONMENT=Development` in the shell that runs .NET commands.
@@ -251,3 +279,93 @@ npm run lint
 API integration tests validate JWT behavior using a framework bearer handler
 and test signing key. Database-backed integration tests require the local
 SQL Server and RabbitMQ services.
+
+## Isolated test database
+
+The test stack uses its own SQL Server and RabbitMQ containers, host ports
+`1434` and `5673`, and named volumes. It does not use or modify the databases,
+broker, or volumes from `compose.yaml`. The one-shot seeder applies all eight
+service migrations and inserts deterministic starter data for the local test identity
+`00000000-0000-0000-0000-000000000001`. Operational tables such as outboxes,
+idempotency records, and migration history are not starter-seeded. Pantry's
+starter item is inserted without invoking the outbox-producing save path.
+
+From the repository root, create a local-only password file if one does not
+already exist, then replace its placeholder with a strong password:
+
+```powershell
+if (-not (Test-Path .env.test)) { Copy-Item .env.test.example .env.test }
+notepad .env.test
+```
+
+Start SQL Server and run the migrations/seeder:
+
+```powershell
+docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml up --build -d
+docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml logs seed
+```
+
+The database is available at
+`Server=127.0.0.1,1434;Database=ChopChopTest;User Id=sa;...`; the broker is
+available at `amqp://chopchop_test:<password-from-.env.test>@127.0.0.1:5673/`.
+Use `Encrypt=True;TrustServerCertificate=True` for the database connection.
+To repeat the idempotent migrations and seed:
+
+```powershell
+docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml run --build --rm seed
+```
+
+Stop the test stack and keep its data with:
+
+```powershell
+docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml down
+```
+
+To reset only this isolated test database and its volume, use:
+
+```powershell
+docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml down -v
+```
+
+Do not use `down -v` on the regular development Compose stack unless you intend
+to remove its data.
+
+### Start the complete local test site
+
+After creating `.env.test` once and installing the client dependencies with
+`npm ci` in both `src\ChopChop.Client` and `src\Pantry.Client`, start the
+isolated database, broker, seeder, all eight APIs, and both browser clients from
+the repository root:
+
+```powershell
+dotnet run --project tools\ChopChop.LocalLauncher
+```
+
+The Windows launcher keeps the services in separate processes and streams their
+logs into one terminal. Press Ctrl+C or close the terminal to stop the apps and
+the isolated test database and broker, even if those containers were already
+running. Their named data volumes are preserved. Cleanup after closing the
+window is best effort if Docker is unavailable; any failure is reported the
+next time the launcher starts. The launcher checks the API and browser client
+ports first and reports conflicts before starting. It reuses the isolated Compose
+services when they are already running; Docker Compose reports conflicts on
+infrastructure ports. `--dry-run` checks launcher configuration and prints the
+planned services without starting them. Repeated EF Core SQL command logs are
+reduced to warnings and errors; application logs and other EF Core warnings
+remain visible.
+
+Use the browser sites:
+
+- ChopChop: `http://127.0.0.1:5174`
+- Pantry: `http://127.0.0.1:5175`
+
+Development authentication is enabled for local testing. When finished, press
+Ctrl+C in the launcher terminal or close it. If automatic Docker cleanup fails,
+stop the isolated database and broker while preserving their data with:
+
+```powershell
+docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml down
+```
+
+Use the `down -v` reset command above only when you want to delete the isolated
+test database and broker data.

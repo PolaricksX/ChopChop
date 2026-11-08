@@ -40,6 +40,26 @@ public sealed class RecipeDomainTests
         Assert.Throws<ArgumentException>(() => new Ingredient("Flour", 1, ""));
 
     [Fact]
+    public void Recipe_version_assigns_stable_positions_to_ordered_children()
+    {
+        var version = new RecipeVersion(
+            "Soup",
+            "Description",
+            2,
+            [new Ingredient("Carrot", 1, "piece"), new Ingredient("Potato", 2, "piece")],
+            [new InstructionStep(1, "Cook")],
+            equipmentRequirements:
+            [
+                new EquipmentRequirement("Pot"),
+                new EquipmentRequirement("Knife")
+            ],
+            createdAtUtc: Now);
+
+        Assert.Equal(new[] { 0, 1 }, version.Ingredients.Select(item => item.Position));
+        Assert.Equal(new[] { 0, 1 }, version.EquipmentRequirements.Select(item => item.Position));
+    }
+
+    [Fact]
     public void New_recipe_starts_at_version_one_and_can_be_published()
     {
         var recipe = NewRecipe();

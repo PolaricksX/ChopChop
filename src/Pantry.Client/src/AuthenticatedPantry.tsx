@@ -7,28 +7,35 @@ import { PantryClient } from "./pantryClient";
 let callback: Promise<User> | undefined;
 
 export function AuthenticatedPantry() {
-  const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
+  const developmentAuthEnabled = import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH === "true";
   const client = useMemo(
-    () => user && !user.expired && user.access_token
-      ? new PantryClient(import.meta.env.VITE_API_URL ?? "", user.access_token)
+    () => accessToken
+      ? new PantryClient(import.meta.env.VITE_API_URL ?? "", accessToken)
       : null,
-    [user],
+    [accessToken],
   );
 
   useEffect(() => {
+    if (developmentAuthEnabled) {
+      setAccessToken("development-mode");
+      setReady(true);
+      return;
+    }
+
     let active = true;
     const loaded = (next: User) => {
       if (active) {
-        setUser(!next.expired && next.access_token ? next : null);
+        setAccessToken(!next.expired && next.access_token ? next.access_token : null);
         setError("");
       }
     };
-    const unloaded = () => { if (active) setUser(null); };
+    const unloaded = () => { if (active) setAccessToken(null); };
     const expired = () => {
       if (active) {
-        setUser(null);
+        setAccessToken(null);
         setError("Your session has expired. Sign in again.");
       }
     };
@@ -66,7 +73,7 @@ export function AuthenticatedPantry() {
       userManager.events.removeAccessTokenExpired(expired);
       userManager.events.removeSilentRenewError(renewalFailed);
     };
-  }, []);
+  }, [developmentAuthEnabled]);
 
   const signIn = () => {
     setError("");
@@ -81,7 +88,9 @@ export function AuthenticatedPantry() {
   return <>
     {error && <p className="alert" role="alert">{error}</p>}
     {client
-      ? <><button onClick={signOut}>Sign out</button><PantryApp client={client} /></>
+      ? <>{developmentAuthEnabled
+          ? <p className="alert">Development mode is enabled.</p>
+          : <button onClick={signOut}>Sign out</button>}<PantryApp client={client} /></>
       : <main className="container"><h1>My pantry</h1><p>Sign in to manage your pantry.</p><button onClick={signIn}>Sign in</button></main>}
   </>;
 }

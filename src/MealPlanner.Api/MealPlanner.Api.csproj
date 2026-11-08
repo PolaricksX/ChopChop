@@ -3,6 +3,7 @@
     <UserSecretsId>chopchop-meal-planner-local</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ChopChop.Shared\ChopChop.Shared.csproj" />
     <ProjectReference Include="..\MealPlanner.Data\MealPlanner.Data.csproj" />
     <ProjectReference Include="..\MealPlanner.Domain\MealPlanner.Domain.csproj" />
   </ItemGroup>
