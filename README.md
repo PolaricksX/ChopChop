@@ -6,10 +6,11 @@
 
 - Milestone 2 established the repository process assets (R-PIV, layer guidance,
   diagrams, and reflection). See [docs/reflection.md](docs/reflection.md).
-- Milestone 3 implements Xavier's assigned AI Recipe Generation and
-  Interactive Review services. See [docs/milestone-3-ai-review-plan.md](docs/milestone-3-ai-review-plan.md)
-  and the GitHub work items [#18](https://github.com/PolaricksX/ChopChop/issues/18)
-  and [#19](https://github.com/PolaricksX/ChopChop/issues/19).
+- Milestone 3 includes AI Recipe Generation and Interactive Review, plus the
+  individually authorized User Equipment service for issue #51. See
+  [docs/milestone-3-ai-review-plan.md](docs/milestone-3-ai-review-plan.md),
+  [docs/equipment-api.md](docs/equipment-api.md), and
+  [ADR 0007](docs/adr/0007-user-equipment-service-scope.md).
 - Service setup and API contracts are documented in
   [docs/local-development.md](docs/local-development.md) and
   [docs/api-contracts.md](docs/api-contracts.md). The .NET solution and React
@@ -33,13 +34,14 @@
   - `meal-planner.md` — Meal Planner contract, configuration, eventing and limitations
 - `src/` — `UserService.*`, `MealPlanner.*`, `AiRecipeGeneration.*`,
   `InteractiveReview.*`, and `RecipeManagement.*` services, plus
-  `Pantry.*`, `ChopChop.Shared`, `ChopChop.Client`, and `MealPlanner.Client` (React)
+  `ChopChop.Shared` and the unified `ChopChop.Client` React app
 - `tests/` — unit and integration tests for each service
 - `compose.yaml` — local SQL Server and RabbitMQ dependencies; set required credentials through environment variables
 - `Solution.sln` — build with `dotnet build`, test with `dotnet test`
 
-Services use the shared `ConnectionStrings:ChopChop` database connection and own separate tables.
+Services own separate tables. Most use the shared `ConnectionStrings:ChopChop`
+database connection; Equipment uses `ConnectionStrings:Equipment`.
 
-The React browser client is in `src/MealPlanner.Client`. See the
-[Meal Planning client guide](docs/meal-planning-client.md) for setup,
-authentication, and API behavior.
+The React browser client is in `src/ChopChop.Client`; meal planning is available
+from its Meal Plans tab. See the [Meal Planning client guide](docs/meal-planning-client.md)
+for setup and API behavior.

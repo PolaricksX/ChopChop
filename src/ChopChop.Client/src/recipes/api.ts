@@ -1,5 +1,5 @@
 import type { DraftRecipe, Page, PublishedRecipe, RecipeContent, RecipeSummary } from './types'
-import { userManager } from '../auth'
+import { getApiAccessToken } from '../auth'
 
 export class RecipeApiError extends Error {
   readonly status: number
@@ -8,25 +8,24 @@ export class RecipeApiError extends Error {
 
 const baseUrl = import.meta.env.VITE_RECIPE_MANAGEMENT_API_URL ?? 'http://localhost:5083'
 
-const sessionExpiredMessage = 'Your session expired. Please sign in again.'
+type RecipePermission = 'recipes.read' | 'recipes.write' | 'recipes.publish'
 
-async function request<T>(path: string, init: RequestInit = {}, requiresAuth = false, retry = true): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  permission?: RecipePermission,
+  retry = true,
+): Promise<T> {
   const headers = new Headers(init.headers)
   headers.set('Content-Type', 'application/json')
   headers.set('X-Correlation-Id', crypto.randomUUID())
-  if (requiresAuth) {
-    const user = await userManager.getUser()
-    if (!user?.access_token) throw new RecipeApiError(sessionExpiredMessage, 401)
+  if (permission) {
+    const user = { access_token: await getApiAccessToken('recipes', permission, !retry) }
     headers.set('Authorization', `Bearer ${user.access_token}`)
   }
   const response = await fetch(new URL(path, baseUrl), { ...init, headers })
-  if (response.status === 401 && requiresAuth && retry) {
-    try {
-      await userManager.signinSilent()
-      return request<T>(path, init, true, false)
-    } catch {
-      throw new RecipeApiError(sessionExpiredMessage, 401)
-    }
+  if (response.status === 401 && permission && retry) {
+    return request<T>(path, init, permission, false)
   }
   if (!response.ok) {
     const problem = await response.json().catch(() => undefined) as { detail?: unknown; error?: unknown } | undefined
@@ -45,10 +44,10 @@ export function listRecipes(filters: { page?: number; pageSize?: number; text?: 
 }
 export const getPublishedRecipe = (id: string) => request<PublishedRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}`)
 export const getRecipeVersion = (id: string, version: number) => request<PublishedRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}/versions/${version}`)
-export const getDrafts = () => request<Page<DraftRecipe>>('/api/v1/recipes/drafts', {}, true)
-export const getDraft = (id: string) => request<DraftRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}/draft`, {}, true)
-export const createDraft = (content: RecipeContent) => request<DraftRecipe>('/api/v1/recipes', { method: 'POST', body: JSON.stringify(content) }, true)
-export const updateDraft = (id: string, expectedVersion: number, content: RecipeContent) => request<void>(`/api/v1/recipes/${encodeURIComponent(id)}/draft`, { method: 'PUT', body: JSON.stringify({ expectedVersion, content }) }, true)
-export const deleteDraft = (id: string) => request<void>(`/api/v1/recipes/${encodeURIComponent(id)}/draft`, { method: 'DELETE' }, true)
-export const publishDraft = (id: string) => request<PublishedRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}/publish`, { method: 'POST' }, true)
-export const unpublishRecipe = (id: string) => request<void>(`/api/v1/recipes/${encodeURIComponent(id)}/unpublish`, { method: 'POST' }, true)
+export const getDrafts = () => request<Page<DraftRecipe>>('/api/v1/recipes/drafts', {}, 'recipes.read')
+export const getDraft = (id: string) => request<DraftRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}/draft`, {}, 'recipes.read')
+export const createDraft = (content: RecipeContent) => request<DraftRecipe>('/api/v1/recipes', { method: 'POST', body: JSON.stringify(content) }, 'recipes.write')
+export const updateDraft = (id: string, expectedVersion: number, content: RecipeContent) => request<void>(`/api/v1/recipes/${encodeURIComponent(id)}/draft`, { method: 'PUT', body: JSON.stringify({ expectedVersion, content }) }, 'recipes.write')
+export const deleteDraft = (id: string) => request<void>(`/api/v1/recipes/${encodeURIComponent(id)}/draft`, { method: 'DELETE' }, 'recipes.write')
+export const publishDraft = (id: string) => request<PublishedRecipe>(`/api/v1/recipes/${encodeURIComponent(id)}/publish`, { method: 'POST' }, 'recipes.publish')
+export const unpublishRecipe = (id: string) => request<void>(`/api/v1/recipes/${encodeURIComponent(id)}/unpublish`, { method: 'POST' }, 'recipes.publish')

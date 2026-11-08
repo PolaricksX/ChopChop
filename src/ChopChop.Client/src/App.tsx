@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import type { User } from 'oidc-client-ts'
+import { useAuth0 } from '@auth0/auth0-react'
 import {
   confirmGeneration,
   createGeneration,
@@ -11,20 +11,40 @@ import {
   moderateReview,
 } from './api'
 import type { Generation, Review } from './api'
-import { userManager } from './auth'
+import { getApiAccessToken, setTokenGetter } from './auth'
 import './App.css'
 import { RecipeDetails } from './recipes/RecipeDetails'
 import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import type { MealPlannerPermission } from './meal-planning/api'
 
-type Panel = 'recipe' | 'recipes' | 'cookbook' | 'review' | 'moderation'
+const MealPlannerDashboard = lazy(() =>
+  import('./meal-planning/MealPlannerDashboard').then(({ MealPlannerDashboard }) => ({
+    default: MealPlannerDashboard,
+  })),
+)
+
+type Panel = 'recipe' | 'recipes' | 'cookbook' | 'meal-planner' | 'review' | 'moderation'
 type RecipeView = 'browse' | 'drafts' | 'new' | 'details' | 'edit'
 
 function App() {
-  const [user, setUser] = useState<User | null>(null)
-  const [authReady, setAuthReady] = useState(false)
+  const {
+    error: authError,
+    getAccessTokenSilently,
+    isAuthenticated,
+    isLoading: authLoading,
+    loginWithRedirect,
+    logout,
+    user,
+  } = useAuth0()
+  setTokenGetter((options) => getAccessTokenSilently(options))
+  const getMealPlannerAccessToken = useCallback(
+    (permission: MealPlannerPermission, forceRefresh = false) =>
+      getApiAccessToken('mealPlanner', permission, forceRefresh),
+    [],
+  )
   const [activePanel, setActivePanel] = useState<Panel>('recipe')
   const [recipeView, setRecipeView] = useState<RecipeView>('browse')
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
@@ -43,51 +63,17 @@ function App() {
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    const handleUserLoaded = (loadedUser: User) => setUser(loadedUser)
-    const handleUserUnloaded = () => setUser(null)
-    const handleAccessTokenExpired = () => {
-      void userManager.getUser()
-        .then((currentUser) => setUser(currentUser?.expired ? null : currentUser))
-        .catch(() => setUser(null))
-    }
-    userManager.events.addUserLoaded(handleUserLoaded)
-    userManager.events.addUserUnloaded(handleUserUnloaded)
-    userManager.events.addAccessTokenExpired(handleAccessTokenExpired)
-    const cleanup = () => {
-      userManager.events.removeUserLoaded(handleUserLoaded)
-      userManager.events.removeUserUnloaded(handleUserUnloaded)
-      userManager.events.removeAccessTokenExpired(handleAccessTokenExpired)
-    }
-
-    if (window.location.pathname === '/auth/callback') {
-      userManager.signinRedirectCallback()
-        .then(() => window.location.replace('/'))
-        .catch((callbackError: unknown) => {
-          setError(errorMessage(callbackError))
-          setAuthReady(true)
-        })
-      return cleanup
-    }
-
-    userManager.getUser()
-      .then(setUser)
-      .catch((authError: unknown) => setError(errorMessage(authError)))
-      .finally(() => setAuthReady(true))
-    return cleanup
-  }, [])
-
   const generationId = generation?.id
   const generationStatus = generation?.status
 
   useEffect(() => {
-    if (!user?.access_token || !generationId || !generationStatus || !isPending(generationStatus)) return
+    if (!isAuthenticated || !generationId || !generationStatus || !isPending(generationStatus)) return
 
     let active = true
     let timer: ReturnType<typeof setTimeout>
     const poll = async () => {
       try {
-        const latest = await getGeneration(user.access_token, generationId)
+        const latest = await getGeneration(await getApiAccessToken('ai', 'recipe-generations.read'), generationId)
         if (!active) return
         setGeneration(latest)
         if (isPending(latest.status)) timer = setTimeout(poll, 1800)
@@ -104,26 +90,34 @@ function App() {
       active = false
       clearTimeout(timer)
     }
-  }, [generationId, generationStatus, user?.access_token])
+  }, [generationId, generationStatus, isAuthenticated])
 
   const signIn = async () => {
     setError('')
-    await userManager.signinRedirect()
+    try {
+      await loginWithRedirect()
+    } catch (loginError) {
+      setError(errorMessage(loginError))
+    }
   }
 
   const signOut = async () => {
-    await userManager.signoutRedirect()
+    try {
+      await logout({ logoutParams: { returnTo: `${window.location.origin}/` } })
+    } catch (logoutError) {
+      setError(errorMessage(logoutError))
+    }
   }
 
   const submitGeneration = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!user) return
+    if (!isAuthenticated) return
     setBusy(true)
     setError('')
     setNotice('')
     setGeneration(null)
     try {
-      const result = await createGeneration(user.access_token, {
+      const result = await createGeneration(await getApiAccessToken('ai', 'recipe-generations.create'), {
         prompt,
         includePantry,
         pantryItems: includePantry
@@ -140,11 +134,11 @@ function App() {
   }
 
   const confirmDraft = async () => {
-    if (!user || !generation) return
+    if (!isAuthenticated || !generation) return
     setBusy(true)
     setError('')
     try {
-      await confirmGeneration(user.access_token, generation.id)
+      await confirmGeneration(await getApiAccessToken('ai', 'recipe-generations.confirm'), generation.id)
       setGeneration({ ...generation, status: 'Confirmed' })
       setNotice('Draft confirmed. It remains labelled as AI-generated.')
     } catch (requestError) {
@@ -156,12 +150,12 @@ function App() {
 
   const submitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!user) return
+    if (!isAuthenticated) return
     setBusy(true)
     setError('')
     setNotice('')
     try {
-      const created = await createReview(user.access_token, {
+      const created = await createReview(await getApiAccessToken('review', 'reviews.create'), {
         recipeId,
         rating,
         body: reviewBody,
@@ -178,31 +172,31 @@ function App() {
   }
 
   const loadReviews = async () => {
-    if (!user) return
+    if (!isAuthenticated) return
     setError('')
     try {
-      setReviews(await getReviews(user.access_token, recipeId))
+      setReviews(await getReviews(await getApiAccessToken('review', 'reviews.read'), recipeId))
     } catch (requestError) {
       setError(errorMessage(requestError))
     }
   }
 
   const loadModerationQueue = async () => {
-    if (!user) return
+    if (!isAuthenticated) return
     setError('')
     try {
-      setModerationQueue(await getModerationQueue(user.access_token))
+      setModerationQueue(await getModerationQueue(await getApiAccessToken('review', 'reviews.moderate')))
     } catch (requestError) {
       setError(errorMessage(requestError))
     }
   }
 
   const moderate = async (review: Review, status: 'Published' | 'Rejected') => {
-    if (!user) return
+    if (!isAuthenticated) return
     setBusy(true)
     setError('')
     try {
-      await moderateReview(user.access_token, review.id, status, moderationReason)
+      await moderateReview(await getApiAccessToken('review', 'reviews.moderate'), review.id, status, moderationReason)
       setModerationQueue((queue) => queue.filter((item) => item.id !== review.id))
       setNotice(`Review ${status.toLowerCase()}.`)
     } catch (requestError) {
@@ -212,19 +206,19 @@ function App() {
     }
   }
 
-  if (!authReady) {
+  if (authLoading) {
     return <main className="shell"><p role="status">Loading your secure session…</p></main>
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return (
       <main className="shell auth-shell">
         <p className="eyebrow">CHOPCHOP · YOUR KITCHEN COMPANION</p>
         <h1>Good food starts with what you have.</h1>
         <p className="lede">Create a recipe draft, share thoughtful feedback, and keep every AI suggestion in your control.</p>
-        {error && <p role="alert" className="message error">{error}</p>}
+        {(error || authError) && <p role="alert" className="message error">{error || authError?.message}</p>}
         <button className="primary" onClick={signIn}>Sign in to continue</button>
-        <p className="small-note">Secure sign-in uses your organization's OpenID Connect provider.</p>
+        <p className="small-note">Secure sign-in is provided by Auth0.</p>
       </main>
     )
   }
@@ -234,7 +228,7 @@ function App() {
       <header className="topbar">
         <a className="brand" href="/">chop<span>chop</span></a>
         <div className="account">
-          <span>{user.profile.name ?? user.profile.preferred_username ?? 'Signed in'}</span>
+          <span>{user?.name ?? user?.nickname ?? 'Signed in'}</span>
           <button className="quiet" onClick={signOut}>Sign out</button>
         </div>
       </header>
@@ -245,10 +239,11 @@ function App() {
         <p className="lede">Build a recipe around your idea or help the community make a good one even better.</p>
       </section>
 
-      <nav className="tabs" aria-label="Cookbook tools">
+      <nav className="tabs" aria-label="Kitchen tools">
         <button className={activePanel === 'recipe' ? 'tab active' : 'tab'} onClick={() => setActivePanel('recipe')}>AI recipe</button>
         <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
+        <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
@@ -278,6 +273,11 @@ function App() {
       )}
 
       {activePanel === 'cookbook' && <CookbookTab />}
+      {activePanel === 'meal-planner' && (
+        <Suspense fallback={<p role="status">Loading meal planning…</p>}>
+          <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
+        </Suspense>
+      )}
 
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">

@@ -9,10 +9,12 @@ or invalid token is rejected. Each API accepts only its configured
 
 | Method and route | Policy | Result |
 |---|---|---|
-| `POST /api/recipe-generations` | `recipe:create` | `202 Accepted`; persists an idempotent request and status URL |
-| `GET /api/recipe-generations/{id}` | `recipe:read` | Owner-only status and, when ready, labelled draft |
-| `POST /api/recipe-generations/{id}/confirm` | `recipe:confirm` | Owner-only transition from `Completed` to `Confirmed` |
+| `POST /api/recipe-generations` | `recipe-generations.create` | `202 Accepted`; persists an idempotent request and status URL |
+| `GET /api/recipe-generations/{id}` | `recipe-generations.read` | Owner-only status and, when ready, labelled draft |
+| `POST /api/recipe-generations/{id}/confirm` | `recipe-generations.confirm` | Owner-only transition from `Completed` to `Confirmed` |
 | `GET /health` | Anonymous | Checks only this service's database |
+| `GET /` | Anonymous | Service readiness information |
+| OpenAPI | Authenticated fallback policy | Requires a valid access token |
 
 Example request (the pantry is sent only after the user opts in):
 
@@ -51,14 +53,16 @@ confirm a completed draft before it can leave the generated-draft workflow.
 
 | Method and route | Policy | Result |
 |---|---|---|
-| `POST /api/reviews` | `review:create` | Owner-authored pending review |
-| `GET /api/recipes/{recipeId}/reviews?page=1&pageSize=20` | `review:read` | Published-only, bounded page |
-| `GET /api/reviews/{id}` | `review:read` | Owner-only review |
-| `PUT /api/reviews/{id}` | `review:create` | Owner-only update; sends it back to moderation |
-| `DELETE /api/reviews/{id}` | `review:create` | Owner-only deletion |
-| `GET /api/moderation/reviews?limit=50` | `review:moderate` | Bounded moderation queue |
-| `POST /api/moderation/reviews/{id}` | `review:moderate` | Moderator decision and reason |
+| `POST /api/reviews` | `reviews.create` | Owner-authored pending review |
+| `GET /api/recipes/{recipeId}/reviews?page=1&pageSize=20` | `reviews.read` | Published-only, bounded page |
+| `GET /api/reviews/{id}` | `reviews.read` | Owner-only review |
+| `PUT /api/reviews/{id}` | `reviews.write` | Owner-only update; sends it back to moderation |
+| `DELETE /api/reviews/{id}` | `reviews.write` | Owner-only deletion |
+| `GET /api/moderation/reviews?limit=50` | `reviews.moderate` | Bounded moderation queue |
+| `POST /api/moderation/reviews/{id}` | `reviews.moderate` | Moderator decision and reason |
 | `GET /health` | Anonymous | Checks only this service's database |
+| `GET /` | Anonymous | Service readiness information |
+| OpenAPI | Authenticated fallback policy | Requires a valid access token |
 
 Review ratings are 1–5, review text is limited to 2000 characters, and
 suggestions to 1000 characters. A unique database index enforces one review

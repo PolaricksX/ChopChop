@@ -1,28 +1,37 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { userManager } from './auth'
 
-vi.mock('./auth', () => ({
-  userManager: {
-    getUser: vi.fn(),
-    signinRedirect: vi.fn(),
-    signinRedirectCallback: vi.fn(),
-    signoutRedirect: vi.fn(),
-    events: {
-      addUserLoaded: vi.fn(),
-      removeUserLoaded: vi.fn(),
-      addUserUnloaded: vi.fn(),
-      removeUserUnloaded: vi.fn(),
-      addAccessTokenExpired: vi.fn(),
-      removeAccessTokenExpired: vi.fn(),
-    },
-  },
+const authState = vi.hoisted(() => ({
+  loginWithRedirect: vi.fn(),
+  getAccessTokenSilently: vi.fn(),
+  isAuthenticated: false,
+  isLoading: false,
+}))
+
+vi.mock('@auth0/auth0-react', () => ({
+  useAuth0: () => ({
+    error: undefined,
+    getAccessTokenSilently: authState.getAccessTokenSilently,
+    isAuthenticated: authState.isAuthenticated,
+    isLoading: authState.isLoading,
+    loginWithRedirect: authState.loginWithRedirect,
+    logout: vi.fn(),
+    user: undefined,
+  }),
 }))
 
 describe('App authentication gate', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
   beforeEach(() => {
-    vi.mocked(userManager.getUser).mockResolvedValue(null)
+    authState.loginWithRedirect.mockReset()
+    authState.getAccessTokenSilently.mockReset().mockResolvedValue('access-token')
+    authState.isAuthenticated = false
+    authState.isLoading = false
   })
 
   it('keeps recipe and review tools behind OIDC sign-in', async () => {
@@ -32,10 +41,54 @@ describe('App authentication gate', () => {
     expect(screen.queryByRole('heading', { name: 'Create a recipe draft' })).toBeNull()
   })
 
-  it('starts the authorization-code sign-in flow from the sign-in action', async () => {
+  it('starts Auth0 Universal Login from the sign-in action', async () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in to continue' }))
 
-    expect(userManager.signinRedirect).toHaveBeenCalledOnce()
+    expect(authState.loginWithRedirect).toHaveBeenCalledOnce()
+  })
+
+  it('opens meal planning within the shared authenticated client', async () => {
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_MEAL_PLANNER_AUDIENCE', 'https://api.chopchop.local/meal-planner')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ items: [], page: 1, pageSize: 20, totalCount: 0 }), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Meal Plans' }))
+
+    expect(await screen.findByRole('heading', { name: 'Your meal plans' })).toBeInTheDocument()
+    expect(await screen.findByText('Start with a plan')).toBeInTheDocument()
+    expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/meal-planner',
+        scope: 'mealplans.read',
+      },
+    })
+  })
+
+  it('opens the authenticated Equipment tab', async () => {
+    vi.mocked(userManager.getUser).mockResolvedValue({
+      access_token: 'equipment-token',
+      profile: { name: 'Test cook', preferred_username: 'cook' },
+    } as never)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalCount: 0,
+    }))))
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Equipment' }))
+
+    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeTruthy()
+    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeTruthy()
   })
 })
