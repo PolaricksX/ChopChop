@@ -1,4 +1,4 @@
-type TokenOptions = {
+export type TokenOptions = {
   authorizationParams: { audience: string; scope: string }
   cacheMode?: 'off'
 }
@@ -23,7 +23,22 @@ export type ApiPermission =
 
 let tokenGetter: TokenGetter | undefined
 
-export function setTokenGetter(getter: TokenGetter) {
+export async function getTokenOrReauthenticate(
+  options: TokenOptions,
+  getToken: TokenGetter,
+  reauthenticate: (authorizationParams: TokenOptions['authorizationParams']) => Promise<string | undefined>,
+): Promise<string | undefined> {
+  try {
+    return await getToken(options)
+  } catch (tokenError) {
+    const code = typeof tokenError === 'object' && tokenError !== null && 'error' in tokenError
+      ? tokenError.error : undefined
+    if (typeof code !== 'string' || !['missing_refresh_token', 'login_required', 'consent_required'].includes(code)) throw tokenError
+    return reauthenticate(options.authorizationParams)
+  }
+}
+
+export function setTokenGetter(getter?: TokenGetter) {
   tokenGetter = getter
 }
 

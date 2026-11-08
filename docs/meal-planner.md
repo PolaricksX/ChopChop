@@ -65,7 +65,7 @@ When RabbitMQ is unavailable, the API can still commit plan operations and outbo
 Set `ConnectionStrings__ChopChop`, `Auth__Authority`, `Auth__Audience`, and (if needed) `Cors__AllowedOrigins__0`. To run local dependencies, set `MSSQL_SA_PASSWORD`, `RABBITMQ_DEFAULT_USER`, and `RABBITMQ_DEFAULT_PASS` in the shell, then run `docker compose up -d`. Set `RabbitMq__Uri` to the local AMQP URI (URL-escape special characters in credentials) and `RabbitMq__Enabled=true`. Apply migrations explicitly; they are not applied automatically:
 
 ```powershell
-dotnet ef database update --project .\src\MealPlanner.Data --startup-project .\src\MealPlanner.Api
+dotnet ef database update --project .\src\MealPlanner.Data --startup-project .\src\MealPlanner.Data
 dotnet run --project .\src\MealPlanner.Api
 ```
 
