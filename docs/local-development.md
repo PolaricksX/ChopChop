@@ -146,6 +146,8 @@ Available endpoints:
   `/health`.
 - Cookbook API: `http://localhost:20860`; OpenAPI document at
   `/openapi/v1.json`; health at `/health`.
+- User Equipment API: `http://localhost:5018`; OpenAPI document at
+  `/openapi/v1.json`; health at `/health`.
 - Keycloak: `http://localhost:8080/realms/chopchop`.
 
 The client uses `VITE_RECIPE_MANAGEMENT_API_URL` for the Recipe Management API

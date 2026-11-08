@@ -72,4 +72,23 @@ describe('App authentication gate', () => {
       },
     })
   })
+
+  it('opens the authenticated Equipment tab', async () => {
+    vi.mocked(userManager.getUser).mockResolvedValue({
+      access_token: 'equipment-token',
+      profile: { name: 'Test cook', preferred_username: 'cook' },
+    } as never)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalCount: 0,
+    }))))
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Equipment' }))
+
+    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeTruthy()
+    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeTruthy()
+  })
 })
