@@ -16,11 +16,11 @@ public class PantryDomainTests
     }
 
     [Fact]
-    public void Normalizes_name_and_owner()
+    public void Normalizes_name_but_preserves_owner_exactly()
     {
         var item = new PantryItem(Guid.NewGuid(), " user 1 ", "  Red   Beans ", PantryType.Grains, 1, Unit.Kilogram);
 
-        Assert.Equal("user 1", item.OwnerId);
+        Assert.Equal(" user 1 ", item.OwnerId);
         Assert.Equal("Red Beans", item.Name);
     }
 
@@ -83,5 +83,6 @@ public class PantryDomainTests
 
         Assert.True(first.IsDuplicateOf(duplicate));
         Assert.False(first.IsDuplicateOf(differentOwner));
+        Assert.False(first.IsDuplicateOf(new PantryItem(Guid.NewGuid(), "USER", "Rice", PantryType.Grains, 1, Unit.Count)));
     }
 }

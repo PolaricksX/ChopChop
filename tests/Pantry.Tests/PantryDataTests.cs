@@ -29,7 +29,7 @@ public sealed class PantryDataTests
     {
         await using var db = CreateContext();
         var repository = new PantryRepository(db);
-        var first = await repository.AddAsync(Item(" owner ", "  Rice  ", PantryType.Grains), CancellationToken.None);
+        var first = await repository.AddAsync(Item("owner", "  Rice  ", PantryType.Grains), CancellationToken.None);
 
         await Assert.ThrowsAsync<DuplicatePantryItemException>(() =>
             repository.AddAsync(Item("owner", "Rice", PantryType.Grains), CancellationToken.None));
@@ -86,8 +86,27 @@ public sealed class PantryDataTests
         Assert.True(index.IsUnique);
         Assert.Equal("[Availability] = 0", index.GetFilter());
         Assert.Equal(
-            ["OwnerIdNormalized", "NameNormalized", "Type"],
+            ["OwnerKey", "NameNormalized", "Type"],
             index.Properties.Select(property => property.Name));
+    }
+
+    [Fact]
+    public async Task Case_and_whitespace_distinct_owners_have_isolated_items_and_duplicates()
+    {
+        await using var db = CreateContext();
+        var repository = new PantryRepository(db);
+        var owners = new[] { "owner", "Owner", "owner ", " owner" };
+        var items = new List<PantryItem>();
+        foreach (var owner in owners)
+            items.Add(await repository.AddAsync(Item(owner, "Rice", PantryType.Grains), CancellationToken.None));
+
+        for (var index = 0; index < owners.Length; index++)
+        {
+            var results = await repository.ListFilteredAsync(owners[index], null, null, null, null, 1, 20, CancellationToken.None);
+            Assert.Equal(items[index].Id, Assert.Single(results).Id);
+            Assert.False(await repository.ExistsAsync(owners[index], items[(index + 1) % items.Count].Id, CancellationToken.None));
+            Assert.False(await repository.DeleteAsync(owners[index], items[(index + 1) % items.Count].Id, CancellationToken.None));
+        }
     }
 
     private static PantryItem Item(string owner, string name, PantryType type) =>

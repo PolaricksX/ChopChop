@@ -23,13 +23,13 @@ public sealed class PantryItemConfiguration : IEntityTypeConfiguration<PantryIte
         builder.Property(item => item.UpdatedAt).IsRequired();
         builder.Property(item => item.Version).IsRowVersion().IsRequired();
 
-        builder.Property<string>("OwnerIdNormalized")
-            .HasMaxLength(200).IsRequired();
+        builder.Property<string>("OwnerKey")
+            .HasMaxLength(64).IsUnicode(false).IsRequired();
         builder.Property<string>("NameNormalized")
             .HasMaxLength(120).IsRequired();
 
         builder.HasIndex(
-                "OwnerIdNormalized",
+                "OwnerKey",
                 "NameNormalized",
                 nameof(PantryItem.Type))
             .IsUnique()

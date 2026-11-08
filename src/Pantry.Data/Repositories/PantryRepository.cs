@@ -14,7 +14,8 @@ public sealed class PantryRepository(PantryDbContext db)
         int take,
         CancellationToken token)
     {
-        var query = db.PantryItems.AsNoTracking().Where(item => item.OwnerId == ownerId);
+        var ownerKey = PantryDbContext.OwnerKey(ownerId);
+        var query = db.PantryItems.AsNoTracking().Where(item => EF.Property<string>(item, "OwnerKey") == ownerKey);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var normalizedSearch = search.Trim().ToUpper();
@@ -39,7 +40,8 @@ public sealed class PantryRepository(PantryDbContext db)
         int pageSize,
         CancellationToken token)
     {
-        var query = db.PantryItems.AsNoTracking().Where(item => item.OwnerId == ownerId);
+        var ownerKey = PantryDbContext.OwnerKey(ownerId);
+        var query = db.PantryItems.AsNoTracking().Where(item => EF.Property<string>(item, "OwnerKey") == ownerKey);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var normalizedSearch = search.Trim().ToUpper();
@@ -62,15 +64,21 @@ public sealed class PantryRepository(PantryDbContext db)
             .ToListAsync(token);
     }
 
-    public Task<PantryItem?> GetAsync(string ownerId, Guid id, CancellationToken token) =>
-        db.PantryItems.SingleOrDefaultAsync(item => item.OwnerId == ownerId && item.Id == id, token);
+    public Task<PantryItem?> GetAsync(string ownerId, Guid id, CancellationToken token)
+    {
+        var ownerKey = PantryDbContext.OwnerKey(ownerId);
+        return db.PantryItems.SingleOrDefaultAsync(item => EF.Property<string>(item, "OwnerKey") == ownerKey && item.Id == id, token);
+    }
 
-    public Task<bool> ExistsAsync(string ownerId, Guid id, CancellationToken token) =>
-        db.PantryItems.AnyAsync(item => item.OwnerId == ownerId && item.Id == id, token);
+    public Task<bool> ExistsAsync(string ownerId, Guid id, CancellationToken token)
+    {
+        var ownerKey = PantryDbContext.OwnerKey(ownerId);
+        return db.PantryItems.AnyAsync(item => EF.Property<string>(item, "OwnerKey") == ownerKey && item.Id == id, token);
+    }
 
     public async Task<PantryItem> AddAsync(PantryItem item, CancellationToken token)
     {
-        var ownerKey = PantryDbContext.NormalizeKey(item.OwnerId);
+        var ownerKey = PantryDbContext.OwnerKey(item.OwnerId);
         var nameKey = PantryDbContext.NormalizeKey(item.Name);
         if (await HasActiveDuplicateAsync(ownerKey, nameKey, item.Type, token))
             throw new DuplicatePantryItemException();
@@ -90,7 +98,7 @@ public sealed class PantryRepository(PantryDbContext db)
     public async Task<bool> UpdateAsync(PantryItem item, byte[] version, CancellationToken token)
     {
         if (await HasActiveDuplicateAsync(
-                PantryDbContext.NormalizeKey(item.OwnerId),
+                PantryDbContext.OwnerKey(item.OwnerId),
                 PantryDbContext.NormalizeKey(item.Name),
                 item.Type, token, item.Id))
             throw new DuplicatePantryItemException();
@@ -164,7 +172,7 @@ public sealed class PantryRepository(PantryDbContext db)
         var item = await GetAsync(ownerId, id, token);
         if (item is null)
             return false;
-        var ownerKey = PantryDbContext.NormalizeKey(ownerId);
+        var ownerKey = PantryDbContext.OwnerKey(ownerId);
         var nameKey = PantryDbContext.NormalizeKey(name);
         if (await HasActiveDuplicateAsync(ownerKey, nameKey, type, token, id))
             throw new DuplicatePantryItemException();
@@ -205,7 +213,7 @@ public sealed class PantryRepository(PantryDbContext db)
         CancellationToken token,
         Guid? excludingId = null) =>
         db.PantryItems.AnyAsync(
-            item => EF.Property<string>(item, "OwnerIdNormalized") == ownerKey &&
+            item => EF.Property<string>(item, "OwnerKey") == ownerKey &&
                     EF.Property<string>(item, "NameNormalized") == nameKey &&
                     item.Type == type &&
                     item.Availability == Availability.Available &&

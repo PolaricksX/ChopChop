@@ -10,7 +10,7 @@ namespace Pantry.Api.Services;
 public sealed class PantryApplicationService(IPantryStore store, IHttpContextAccessor httpContext)
 {
     private static string Owner(ClaimsPrincipal user) =>
-        user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        user.FindFirst("sub")?.Value
         ?? throw new UnauthorizedAccessException("A validated subject claim is required.");
 
     public async Task<IResult> ListAsync(ClaimsPrincipal user, PantryQuery query, CancellationToken token) =>

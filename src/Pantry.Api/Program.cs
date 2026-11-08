@@ -1,12 +1,10 @@
-using System.Security.Claims;
-using System.Text.Encodings.Web;
 using ChopChop.Shared;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using System.Text.Json.Serialization;
 using Pantry.Api.Contracts;
 using Pantry.Api.Infrastructure;
 using Pantry.Api.Services;
@@ -27,42 +25,52 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHealthChecks().AddDbContextCheck<PantryDbContext>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddCors(options => options.AddPolicy("pantry-client", policy =>
     policy.WithOrigins(builder.Configuration["Client:Url"] ?? "http://localhost:5173")
         .AllowAnyHeader().AllowAnyMethod()));
 
 var authority = builder.Configuration["Auth:Authority"];
-if (!string.IsNullOrWhiteSpace(authority))
+var audience = builder.Configuration["Auth:Audience"];
+if (!Uri.TryCreate(authority, UriKind.Absolute, out var authorityUri)
+    || (authorityUri.Scheme != Uri.UriSchemeHttps
+        && !(builder.Environment.IsDevelopment() && authorityUri.Scheme == Uri.UriSchemeHttp))
+    || string.IsNullOrWhiteSpace(audience))
 {
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
-    {
-        options.Authority = authority;
-        options.Audience = builder.Configuration["Auth:Audience"];
-        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-    });
+    throw new InvalidOperationException("A valid Auth:Authority and Auth:Audience must be configured. HTTPS is required outside Development.");
 }
-else if (builder.Environment.IsDevelopment())
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
-    builder.Services.AddAuthentication("Development")
-        .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthHandler>("Development", _ => { });
-}
-else
-{
-    throw new InvalidOperationException("Auth:Authority must be configured outside Development.");
-}
+    options.Authority = authority;
+    options.Audience = audience;
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+    options.MapInboundClaims = false;
+    options.IncludeErrorDetails = false;
+    options.TokenValidationParameters.ValidateIssuer = true;
+    options.TokenValidationParameters.ValidateAudience = true;
+    options.TokenValidationParameters.ValidateLifetime = true;
+    options.TokenValidationParameters.RequireExpirationTime = true;
+    options.TokenValidationParameters.RequireSignedTokens = true;
+    options.TokenValidationParameters.ValidateIssuerSigningKey = true;
+    options.TokenValidationParameters.ValidAlgorithms = [SecurityAlgorithms.RsaSha256, SecurityAlgorithms.EcdsaSha256];
+});
 
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser().Build();
-    options.AddPolicy("pantry.read", policy => policy.RequireAssertion(context =>
-        context.User.Claims.Where(c => c.Type is "scope" or "scp")
+    options.AddPolicy("pantry.read", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        HasValidSubject(context.User) &&
+        (context.User.Claims.Where(c => c.Type is "scope" or "scp")
             .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Contains("pantry.read") ||
         context.User.Claims.Where(c => c.Type is "scope" or "scp")
             .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            .Contains("pantry.write")));
-    options.AddPolicy("pantry.write", policy => policy.RequireAssertion(context =>
+            .Contains("pantry.write"))));
+    options.AddPolicy("pantry.write", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        HasValidSubject(context.User) &&
         context.User.Claims.Where(c => c.Type is "scope" or "scp")
             .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Contains("pantry.write")));
@@ -87,9 +95,15 @@ var app = builder.Build();
 app.UseExceptionHandler(error => error.Run(async context =>
 {
     var id = context.TraceIdentifier;
-    context.Response.StatusCode = 500;
+    var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    var status = exception is BadHttpRequestException badRequest
+        ? badRequest.StatusCode
+        : StatusCodes.Status500InternalServerError;
+    context.Response.StatusCode = status;
     context.Response.ContentType = "application/problem+json";
-    await Results.Problem("An unexpected error occurred.", statusCode: 500,
+    await Results.Problem(status == StatusCodes.Status500InternalServerError
+            ? "An unexpected error occurred."
+            : "The request could not be processed.", statusCode: status,
         extensions: new Dictionary<string, object?> { ["correlationId"] = id }).ExecuteAsync(context);
 }));
 app.Use(async (context, next) =>
@@ -109,9 +123,11 @@ app.UseCors("pantry-client");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthChecks("/health").AllowAnonymous();
-app.MapOpenApi().AllowAnonymous();
 if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi().AllowAnonymous();
     app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Pantry API v1"));
+}
 
 var pantry = app.MapGroup("/api/v1/pantry").RequireRateLimiting("pantry");
 pantry.MapGet("/", async (HttpContext http, PantryApplicationService service, CancellationToken token) =>
@@ -135,25 +151,10 @@ pantry.MapDelete("/{id:guid}", async (HttpContext http, Guid id, PantryApplicati
 
 app.Run();
 
-public sealed class DevelopmentAuthHandler(
-    IOptionsMonitor<AuthenticationSchemeOptions> options,
-    ILoggerFactory logger, UrlEncoder encoder)
-    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+static bool HasValidSubject(System.Security.Claims.ClaimsPrincipal user)
 {
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
-    {
-        var id = Request.Headers["X-Test-User"].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(id) || id.Length > 200 || id.Any(char.IsControl))
-            return Task.FromResult(AuthenticateResult.NoResult());
-        var scopes = Request.Headers["X-Test-Scopes"].FirstOrDefault() ?? string.Empty;
-        if (scopes.Any(char.IsControl))
-            return Task.FromResult(AuthenticateResult.Fail("Invalid test scope header."));
-        var identity = new ClaimsIdentity("Development");
-        identity.AddClaim(new Claim("sub", id));
-        identity.AddClaim(new Claim("scope", scopes));
-        return Task.FromResult(AuthenticateResult.Success(
-            new AuthenticationTicket(new ClaimsPrincipal(identity), "Development")));
-    }
+    var subject = user.FindFirst("sub")?.Value;
+    return !string.IsNullOrWhiteSpace(subject) && subject.Length <= 200 && !subject.Any(char.IsControl);
 }
 
 public partial class Program { }

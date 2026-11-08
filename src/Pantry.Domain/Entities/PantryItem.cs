@@ -24,7 +24,9 @@ public sealed class PantryItem
         string? customCategory = null)
     {
         if (id == Guid.Empty) throw new ArgumentException("An item id is required.", nameof(id));
-        OwnerId = NormalizeRequired(ownerId, MaxOwnerIdLength, nameof(ownerId));
+        if (string.IsNullOrWhiteSpace(ownerId) || ownerId.Length > MaxOwnerIdLength || ownerId.Any(char.IsControl))
+            throw new ArgumentException("A valid owner id is required.", nameof(ownerId));
+        OwnerId = ownerId;
         Id = id;
         Type = ValidateType(type);
         SetCustomCategory(customCategory);
@@ -117,7 +119,7 @@ public sealed class PantryItem
 
     public bool HasSameIdentity(PantryItem other) =>
         other is not null &&
-        string.Equals(OwnerId, other.OwnerId, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(OwnerId, other.OwnerId, StringComparison.Ordinal) &&
         string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase) &&
         Type == other.Type &&
         string.Equals(CustomCategory, other.CustomCategory, StringComparison.OrdinalIgnoreCase);

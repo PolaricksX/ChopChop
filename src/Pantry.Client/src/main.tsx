@@ -1,7 +1,14 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { PantryClient } from "./pantryClient";
-import { PantryApp } from "./PantryApp";
+import { AuthenticatedPantry } from "./AuthenticatedPantry";
+import { userManager } from "./auth";
 import "./styles.css";
 
-createRoot(document.getElementById("root")!).render(<React.StrictMode><PantryApp client={new PantryClient(import.meta.env.VITE_API_URL ?? "")} /></React.StrictMode>);
+const root = createRoot(document.getElementById("root")!);
+if (window.location.pathname === "/auth/silent-callback") {
+  void userManager.signinSilentCallback().catch(() => {
+    root.render(<p role="alert">Unable to renew the Pantry session.</p>);
+  });
+} else {
+  root.render(<React.StrictMode><AuthenticatedPantry /></React.StrictMode>);
+}

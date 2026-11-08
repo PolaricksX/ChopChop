@@ -34,6 +34,13 @@ export interface PantryItemRequest {
   notes?: string;
 }
 
+function requestBody(item: PantryItemRequest): string {
+  const expiresAt = item.expiresAt && /^\d{4}-\d{2}-\d{2}$/.test(item.expiresAt)
+    ? `${item.expiresAt}T00:00:00Z`
+    : item.expiresAt || null;
+  return JSON.stringify({ ...item, expiresAt });
+}
+
 export class PantryApiError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
 }
@@ -63,12 +70,12 @@ export class PantryClient {
     }
     return this.request<PantryItem[]>(`/api/v1/pantry?${params}`);
   }
-  add(item: PantryItemRequest) { return this.request<PantryItem>("/api/v1/pantry", { method: "POST", body: JSON.stringify(item) }); }
+  add(item: PantryItemRequest) { return this.request<PantryItem>("/api/v1/pantry", { method: "POST", body: requestBody(item) }); }
   update(id: string, item: PantryItemRequest, version?: string) {
     return this.request<void>(`/api/v1/pantry/${encodeURIComponent(id)}`, {
       method: "PUT",
       headers: version ? { "If-Match": version } : undefined,
-      body: JSON.stringify(item)
+      body: requestBody(item)
     });
   }
   consume(id: string, version?: string) { return this.action(id, "consume", version); }

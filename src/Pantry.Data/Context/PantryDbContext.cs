@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 using ChopChop.Shared;
 using Microsoft.EntityFrameworkCore;
 using Pantry.Data.Persistence;
@@ -31,7 +33,7 @@ public sealed class PantryDbContext(
         {
             if (entry.State is EntityState.Added or EntityState.Modified)
             {
-                entry.Property<string>("OwnerIdNormalized").CurrentValue = NormalizeKey(entry.Entity.OwnerId);
+                entry.Property<string>("OwnerKey").CurrentValue = OwnerKey(entry.Entity.OwnerId);
                 entry.Property<string>("NameNormalized").CurrentValue = NormalizeKey(entry.Entity.Name);
             }
         }
@@ -91,4 +93,7 @@ public sealed class PantryDbContext(
     internal static string NormalizeKey(string value) =>
         string.Join(' ', value.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
             .ToUpperInvariant();
+
+    internal static string OwnerKey(string ownerId) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.Unicode.GetBytes(ownerId)));
 }
