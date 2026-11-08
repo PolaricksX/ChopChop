@@ -200,4 +200,22 @@ describe('EquipmentTab', () => {
 
     await waitFor(() => expect(deleteEquipment).toHaveBeenCalledWith('token', equipment))
   })
+
+  it('requests read and write scopes separately when it owns token acquisition', async () => {
+    const getAccessToken = vi.fn().mockResolvedValue('token')
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
+
+    await screen.findByText('No equipment yet. Add your first kitchen item.')
+    fireEvent.click(screen.getByRole('button', { name: 'Add equipment' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Stock pot' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save equipment' }))
+
+    await waitFor(() => expect(createEquipment).toHaveBeenCalledWith(
+      'token',
+      expect.objectContaining({ name: 'Stock pot' }),
+      expect.any(String),
+    ))
+    expect(getAccessToken).toHaveBeenNthCalledWith(1, 'equipment.read')
+    expect(getAccessToken).toHaveBeenNthCalledWith(2, 'equipment.write')
+  })
 })

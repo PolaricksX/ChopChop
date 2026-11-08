@@ -106,7 +106,6 @@ internal static class LocalLauncher
             }
 
             Console.WriteLine("ChopChop: http://127.0.0.1:5174");
-            Console.WriteLine("Pantry:   http://127.0.0.1:5175");
             Console.WriteLine("SQL Server: 127.0.0.1,1434; RabbitMQ: 127.0.0.1:5673");
 
             var processExits = processes
@@ -165,7 +164,7 @@ internal static class LocalLauncher
     private static void PrintUsage()
     {
         Console.WriteLine("Usage: dotnet run --project tools\\ChopChop.LocalLauncher [--dry-run]");
-        Console.WriteLine("Starts the isolated test database, seeded data, all APIs, and both browser clients.");
+        Console.WriteLine("Starts the isolated test database, seeded data, all APIs, and the unified browser client.");
     }
 
     private static string FindRepositoryRoot()
@@ -244,7 +243,7 @@ internal static class LocalLauncher
             ["Client__Origins__1"] = "http://127.0.0.1:5175",
             ["Cors__AllowedOrigins__0"] = "http://127.0.0.1:5174",
             ["Cors__AllowedOrigins__1"] = "http://127.0.0.1:5175",
-            ["Client__Url"] = "http://127.0.0.1:5175"
+            ["Client__Url"] = "http://127.0.0.1:5174"
         };
         var mainClientEnvironment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -255,11 +254,7 @@ internal static class LocalLauncher
             ["VITE_COOKBOOK_API_URL"] = "http://127.0.0.1:20860",
             ["VITE_MEAL_PLANNER_API_URL"] = "http://127.0.0.1:5033",
             ["VITE_EQUIPMENT_API_URL"] = "http://127.0.0.1:5018",
-            ["VITE_API_URL"] = "http://127.0.0.1:5131"
-        };
-        var pantryClientEnvironment = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["VITE_DEV_AUTH"] = "true"
+            ["VITE_PANTRY_API_URL"] = "http://127.0.0.1:5131"
         };
 
         return
@@ -272,8 +267,7 @@ internal static class LocalLauncher
             Api("Pantry API", "Pantry.Api", "http://127.0.0.1:5131"),
             Api("Meal Planner API", "MealPlanner.Api", "http://127.0.0.1:5033"),
             Api("User Service API", "UserService.Api", "http://127.0.0.1:5199"),
-            Client("ChopChop browser client", Path.Combine("src", "ChopChop.Client"), 5174, mainClientEnvironment),
-            Client("Pantry browser client", Path.Combine("src", "Pantry.Client"), 5175, pantryClientEnvironment)
+            Client("ChopChop browser client", Path.Combine("src", "ChopChop.Client"), 5174, mainClientEnvironment)
         ];
 
         LaunchTarget Api(string name, string project, string url) =>
@@ -341,7 +335,7 @@ internal static class LocalLauncher
     private static List<string> FindPortConflicts()
     {
         var conflicts = new List<string>();
-        foreach (var port in new[] { 5174, 5175, 5018, 5033, 5081, 5082, 5131, 5199, 20858, 20860 })
+        foreach (var port in new[] { 5174, 5018, 5033, 5081, 5082, 5131, 5199, 20858, 20860 })
         {
             using var listener = new TcpListener(IPAddress.Loopback, port);
             try

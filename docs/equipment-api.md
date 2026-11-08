@@ -8,17 +8,20 @@ transactional outbox.
 
 ## Authentication and ownership
 
-The browser client (`ChopChop.Client`) is a public OAuth client. The user is
-the resource owner, Keycloak is the authorization server, and `Equipment.Api`
-is the resource server. Interactive sign-in uses authorization-code flow with
-PKCE (S256); the API never receives user passwords or client secrets.
+The browser client (`ChopChop.Client`) is a public OAuth client. Its Equipment
+tab shares the unified site's Auth0 sign-in and requests `equipment.read` or
+`equipment.write` from the Equipment API audience. The imported Keycloak realm
+remains available as the API's default local authority. The client and API
+never handle user passwords or client secrets.
 
 Configure the Keycloak `chopchop-web` client as public, enable standard flow,
-and require PKCE S256. The imported local realm provides the `equipment-api`
-audience and the optional `equipment.read` and `equipment.write` scopes. The
-client requests these scopes. Read operations require `equipment.read`;
-create, update, availability changes, and delete require `equipment.write`.
-Both policies require an authenticated subject.
+and require PKCE S256 if using the local Keycloak default. The imported local
+realm provides the `equipment-api` audience and the optional `equipment.read`
+and `equipment.write` scopes. When using the unified client's Auth0 setup,
+configure the Equipment API and delegated permissions from
+`docs/local-development.md`. Read operations require `equipment.read`; create,
+update, availability changes, and delete require `equipment.write`. Both
+policies require an authenticated subject.
 
 Configure `Auth:Authority`, optional `Auth:Issuer`, and `Auth:Audience` for the
 deployment. The API validates issuer, audience, signature, expiration, and

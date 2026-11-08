@@ -13,6 +13,8 @@ describe('Auth0 API access tokens', () => {
     vi.stubEnv('VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE', 'https://api.chopchop.local/recipe-management')
     vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
     vi.stubEnv('VITE_AUTH0_MEAL_PLANNER_AUDIENCE', 'https://api.chopchop.local/meal-planner')
+    vi.stubEnv('VITE_AUTH0_PANTRY_AUDIENCE', 'https://api.chopchop.local/pantry')
+    vi.stubEnv('VITE_AUTH0_EQUIPMENT_AUDIENCE', 'https://api.chopchop.local/equipment')
   })
 
   afterEach(() => vi.unstubAllEnvs())
@@ -79,6 +81,42 @@ describe('Auth0 API access tokens', () => {
       authorizationParams: {
         audience: 'https://api.chopchop.local/meal-planner',
         scope: 'mealplans.write',
+      },
+    })
+  })
+
+  it('requests Pantry read and write permissions from its own audience', async () => {
+    await getApiAccessToken('pantry', 'pantry.read')
+    await getApiAccessToken('pantry', 'pantry.write')
+
+    expect(tokenGetter).toHaveBeenNthCalledWith(1, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/pantry',
+        scope: 'pantry.read',
+      },
+    })
+    expect(tokenGetter).toHaveBeenNthCalledWith(2, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/pantry',
+        scope: 'pantry.write',
+      },
+    })
+  })
+
+  it('requests Equipment read and write permissions from its own audience', async () => {
+    await getApiAccessToken('equipment', 'equipment.read')
+    await getApiAccessToken('equipment', 'equipment.write')
+
+    expect(tokenGetter).toHaveBeenNthCalledWith(1, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.read',
+      },
+    })
+    expect(tokenGetter).toHaveBeenNthCalledWith(2, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.write',
       },
     })
   })

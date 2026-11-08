@@ -1,10 +1,11 @@
 # Local Development
 
-This guide runs the assigned AI Recipe Generation, Interactive Review, Recipe
-Management, and Cookbook services with a local SQL Server, RabbitMQ, Keycloak
-realm, and React client. The browser client now uses Auth0; the APIs still
-default to the imported Keycloak realm unless their auth settings are
-overridden as described below.
+This guide runs the AI Recipe Generation, Interactive Review, Recipe
+Management, Cookbook, User Equipment, Pantry, and Meal Planner services with a
+local SQL Server, RabbitMQ, identity provider, and unified React client. The
+ChopChop browser client uses Auth0 when configured; the APIs default to the
+imported Keycloak realm unless their auth settings are overridden as described
+below.
 Do not use the development settings or credentials in a shared or production
 environment.
 
@@ -159,8 +160,10 @@ npm ci
 npm run dev
 ```
 
-The browser client defaults to API ports `5081`, `5082`, `20858`, `20860`, and
-`5033`, plus the configured Auth0 public client settings. `.env.local` may
+The unified browser client defaults to API ports `5081`, `5082`, `20858`,
+`20860`, `5033`, `5018`, and `5131`, plus the configured Auth0 public client
+settings. Its **My Pantry** and **Equipment** tabs use the same sign-in and
+navigation as the rest of ChopChop. `.env.local` may
 override those public values; it must never contain a client secret.
 
 Available endpoints:
@@ -176,6 +179,8 @@ Available endpoints:
   `/openapi/v1.json`; health at `/health`.
 - User Equipment API: `http://localhost:5018`; OpenAPI document at
   `/openapi/v1.json`; health at `/health`.
+- Pantry API: `http://localhost:5131`; OpenAPI document at `/openapi/v1.json`;
+  health at `/health`.
 - Keycloak: `http://localhost:8080/realms/chopchop`.
 
 The client uses `VITE_RECIPE_MANAGEMENT_API_URL` for the Recipe Management API
@@ -187,6 +192,10 @@ The client uses `VITE_COOKBOOK_API_URL` for the Cookbook API base URL. Set
 `VITE_COOKBOOK_API_URL=http://localhost:20860` in
 `src\ChopChop.Client\.env.local`; this is a public URL and must not contain a
 client secret.
+
+The My Pantry and Equipment tabs use `VITE_PANTRY_API_URL` and
+`VITE_EQUIPMENT_API_URL`; they default to `http://localhost:5131` and
+`http://localhost:5018` respectively. These are public API URLs, not secrets.
 
 The Meal Plans tab uses `VITE_MEAL_PLANNER_API_URL` for its API base URL. It
 defaults to `http://localhost:5033`; override it in
@@ -217,6 +226,8 @@ secrets:
 | Cookbook | `https://api.chopchop.local/cookbook` | `cookbook.read`, `cookbook.write` |
 | User Service | `https://api.chopchop.local/user-service` | `users.read`, `users.write` |
 | Meal Planner | `https://api.chopchop.local/meal-planner` | `mealplans.read`, `mealplans.write` |
+| User Equipment | `https://api.chopchop.local/equipment` | `equipment.read`, `equipment.write` |
+| Pantry | `https://api.chopchop.local/pantry` | `pantry.read`, `pantry.write` |
 
 For each API, set its signing algorithm to RS256, enable RBAC, and enable
 permissions in the access token. Assign only the needed permissions to user
@@ -240,6 +251,8 @@ $apiAudiences = @{
   "src\Cookbook.Api" = "https://api.chopchop.local/cookbook"
   "src\UserService.Api" = "https://api.chopchop.local/user-service"
   "src\MealPlanner.Api" = "https://api.chopchop.local/meal-planner"
+  "src\Equipment.Api" = "https://api.chopchop.local/equipment"
+  "src\Pantry.Api" = "https://api.chopchop.local/pantry"
 }
 
 foreach ($project in $apiAudiences.Keys) {
@@ -289,6 +302,15 @@ service migrations and inserts deterministic starter data for the local test ide
 `00000000-0000-0000-0000-000000000001`. Operational tables such as outboxes,
 idempotency records, and migration history are not starter-seeded. Pantry's
 starter item is inserted without invoking the outbox-producing save path.
+Examples include four published recipes, three cookbook folders, three reviews,
+three AI requests, six equipment items, eight pantry items, and two meal plans.
+The seeder also adds a second test user profile for ownership testing; sign-in
+as the development identity continues to show the first user's data. Pantry
+expiration dates and meal-plan dates are relative to the first seed run, and
+rerunning the seeder preserves existing records rather than refreshing dates.
+If a user has already created a matching active pantry or equipment item, the
+corresponding example is not duplicated. Auth0 users have a different subject
+and will not automatically see the development identity's data.
 
 From the repository root, create a local-only password file if one does not
 already exist, then replace its placeholder with a strong password:
@@ -315,6 +337,16 @@ To repeat the idempotent migrations and seed:
 docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml run --build --rm seed
 ```
 
+For an unmodified isolated test database, verify the expected starter records:
+
+```powershell
+Get-Content -Raw tools\ChopChop.Database.Seeder\verify-starter-data.sql |
+  docker compose --project-name chopchop-test --env-file .env.test -f compose.test.yaml exec -T sqlserver sh -c '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d ChopChopTest -b'
+```
+
+The check expects the initial starter records and their relationships; it is not
+intended to pass after editing or removing them through the application.
+
 Stop the test stack and keep its data with:
 
 ```powershell
@@ -332,10 +364,9 @@ to remove its data.
 
 ### Start the complete local test site
 
-After creating `.env.test` once and installing the client dependencies with
-`npm ci` in both `src\ChopChop.Client` and `src\Pantry.Client`, start the
-isolated database, broker, seeder, all eight APIs, and both browser clients from
-the repository root:
+After creating `.env.test` once and installing the unified client dependencies
+with `npm ci` in `src\ChopChop.Client`, start the isolated database, broker,
+seeder, all eight APIs, and the unified browser client from the repository root:
 
 ```powershell
 dotnet run --project tools\ChopChop.LocalLauncher
@@ -354,10 +385,14 @@ planned services without starting them. Repeated EF Core SQL command logs are
 reduced to warnings and errors; application logs and other EF Core warnings
 remain visible.
 
-Use the browser sites:
+Use the unified browser site:
 
 - ChopChop: `http://127.0.0.1:5174`
-- Pantry: `http://127.0.0.1:5175`
+
+The My Pantry and Equipment tabs are available in ChopChop. The standalone
+Pantry client remains available for compatibility and can be started separately
+from `src\Pantry.Client` on port 5175 with its own `npm ci` and
+`npm run dev -- --port 5175` commands.
 
 Development authentication is enabled for local testing. When finished, press
 Ctrl+C in the launcher terminal or close it. If automatic Docker cleanup fails,

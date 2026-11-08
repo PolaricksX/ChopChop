@@ -4,7 +4,7 @@ type TokenOptions = {
 }
 
 type TokenGetter = (options: TokenOptions) => Promise<string | undefined>
-export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner'
+export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner' | 'pantry' | 'equipment'
 export type ApiPermission =
   | 'recipe-generations.create'
   | 'recipe-generations.read'
@@ -20,6 +20,12 @@ export type ApiPermission =
   | 'cookbook.write'
   | 'mealplans.read'
   | 'mealplans.write'
+  | 'pantry.read'
+  | 'pantry.write'
+  | 'equipment.read'
+  | 'equipment.write'
+export type PantryPermission = Extract<ApiPermission, 'pantry.read' | 'pantry.write'>
+export type EquipmentPermission = Extract<ApiPermission, 'equipment.read' | 'equipment.write'>
 
 let tokenGetter: TokenGetter | undefined
 
@@ -57,6 +63,14 @@ export async function getApiAccessToken(
       audience: import.meta.env.VITE_AUTH0_MEAL_PLANNER_AUDIENCE,
       permissions: ['mealplans.read', 'mealplans.write'],
     },
+    pantry: {
+      audience: import.meta.env.VITE_AUTH0_PANTRY_AUDIENCE,
+      permissions: ['pantry.read', 'pantry.write'],
+    },
+    equipment: {
+      audience: import.meta.env.VITE_AUTH0_EQUIPMENT_AUDIENCE,
+      permissions: ['equipment.read', 'equipment.write'],
+    },
   }
   const { audience, permissions } = apiAuth[api]
   if (!permissions.includes(permission)) {
@@ -72,6 +86,8 @@ export async function getApiAccessToken(
       recipes: 'VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE',
       cookbook: 'VITE_AUTH0_COOKBOOK_AUDIENCE',
       mealPlanner: 'VITE_AUTH0_MEAL_PLANNER_AUDIENCE',
+      pantry: 'VITE_AUTH0_PANTRY_AUDIENCE',
+      equipment: 'VITE_AUTH0_EQUIPMENT_AUDIENCE',
     }[api]
     throw new Error(`API access is not configured. Set ${envVariable} in .env.local.`)
   }

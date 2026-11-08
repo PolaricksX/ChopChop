@@ -11,7 +11,12 @@ import {
   moderateReview,
 } from './api'
 import type { Generation, Review } from './api'
-import { getApiAccessToken, isDevelopmentAuthEnabled, setTokenGetter } from './auth'
+import {
+  getApiAccessToken,
+  isDevelopmentAuthEnabled,
+  setTokenGetter,
+} from './auth'
+import type { EquipmentPermission, PantryPermission } from './auth'
 import './App.css'
 import { RecipeDetails } from './recipes/RecipeDetails'
 import { RecipeDrafts } from './recipes/RecipeDrafts'
@@ -25,8 +30,18 @@ const MealPlannerDashboard = lazy(() =>
     default: MealPlannerDashboard,
   })),
 )
+const EquipmentTab = lazy(() =>
+  import('./equipment/EquipmentTab').then(({ EquipmentTab }) => ({
+    default: EquipmentTab,
+  })),
+)
+const PantryTab = lazy(() =>
+  import('./pantry/PantryTab').then(({ PantryTab }) => ({
+    default: PantryTab,
+  })),
+)
 
-type Panel = 'recipe' | 'recipes' | 'cookbook' | 'meal-planner' | 'review' | 'moderation'
+type Panel = 'recipe' | 'recipes' | 'cookbook' | 'meal-planner' | 'pantry' | 'equipment' | 'review' | 'moderation'
 type RecipeView = 'browse' | 'drafts' | 'new' | 'details' | 'edit'
 
 function App() {
@@ -46,6 +61,14 @@ function App() {
   const getMealPlannerAccessToken = useCallback(
     (permission: MealPlannerPermission, forceRefresh = false) =>
       getApiAccessToken('mealPlanner', permission, forceRefresh),
+    [],
+  )
+  const getPantryAccessToken = useCallback(
+    (permission: PantryPermission) => getApiAccessToken('pantry', permission),
+    [],
+  )
+  const getEquipmentAccessToken = useCallback(
+    (permission: EquipmentPermission) => getApiAccessToken('equipment', permission),
     [],
   )
   const [activePanel, setActivePanel] = useState<Panel>('recipe')
@@ -249,6 +272,8 @@ function App() {
         <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
         <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
+        <button className={activePanel === 'pantry' ? 'tab active' : 'tab'} onClick={() => setActivePanel('pantry')}>My Pantry</button>
+        <button className={activePanel === 'equipment' ? 'tab active' : 'tab'} onClick={() => setActivePanel('equipment')}>Equipment</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
@@ -278,6 +303,16 @@ function App() {
       )}
 
       {activePanel === 'cookbook' && <CookbookTab />}
+      {activePanel === 'pantry' && (
+        <Suspense fallback={<p role="status">Loading your pantry…</p>}>
+          <PantryTab getAccessToken={getPantryAccessToken} />
+        </Suspense>
+      )}
+      {activePanel === 'equipment' && (
+        <Suspense fallback={<p role="status">Loading equipment…</p>}>
+          <EquipmentTab getAccessToken={getEquipmentAccessToken} />
+        </Suspense>
+      )}
       {activePanel === 'meal-planner' && (
         <Suspense fallback={<p role="status">Loading meal planning…</p>}>
           <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />

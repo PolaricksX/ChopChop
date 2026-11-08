@@ -83,11 +83,27 @@ describe('App authentication gate', () => {
     })
   })
 
-  it('opens the authenticated Equipment tab', async () => {
-    vi.mocked(userManager.getUser).mockResolvedValue({
-      access_token: 'equipment-token',
-      profile: { name: 'Test cook', preferred_username: 'cook' },
-    } as never)
+  it('opens the authenticated Pantry tab with a Pantry API token', async () => {
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_PANTRY_AUDIENCE', 'https://api.chopchop.local/pantry')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([]))))
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'My Pantry' }))
+
+    expect(await screen.findByRole('heading', { name: 'My pantry' })).toBeInTheDocument()
+    expect(await screen.findByText('No pantry items match these filters.')).toBeInTheDocument()
+    expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/pantry',
+        scope: 'pantry.read',
+      },
+    })
+  })
+
+  it('opens the authenticated Equipment tab with an Equipment API token', async () => {
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_EQUIPMENT_AUDIENCE', 'https://api.chopchop.local/equipment')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       items: [],
       page: 1,
@@ -98,7 +114,13 @@ describe('App authentication gate', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Equipment' }))
 
-    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeTruthy()
-    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeInTheDocument()
+    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeInTheDocument()
+    expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.read',
+      },
+    })
   })
 })

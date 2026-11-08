@@ -7,13 +7,14 @@ JSON requests and responses use enum names such as `"Grains"`, `"Cup"`, and
 `"Available"`, matching the other service APIs. Numeric enum input remains
 accepted for compatibility. Omit an optional expiration or send it as `null`.
 The browser sends a selected date at midnight UTC in ISO 8601 format.
-The standalone React client is a public OAuth client, the user is the resource
-owner, Keycloak is the authorization server, and Pantry.Api is the resource
-server. The browser uses authorization code with PKCE and requests
-`pantry.read` and `pantry.write`; it does not hold a client secret. Configure
-the public client with both `/auth/callback` and `/auth/silent-callback` redirect
-URIs, the `/` post-logout redirect, and its browser origin. Sign-in requires
-the corresponding scopes and the `pantry-api` audience in the access token.
+The preferred browser experience is the **My Pantry** tab in the unified
+`src/ChopChop.Client` site. It uses the same Auth0 sign-in as the other
+ChopChop features and requests `pantry.read` and `pantry.write` from the Pantry
+API audience. Configure that API and its permissions as described in
+`docs/local-development.md`. The standalone `src/Pantry.Client` remains
+available for compatibility and uses Keycloak authorization code with PKCE;
+it has no client secret and requests the `pantry-api` audience with
+`pantry.read` and `pantry.write`.
 
 The API requires `Auth:Authority` and `Auth:Audience` in every environment;
 the framework JWT handler validates the signature, issuer, audience, and expiry.
@@ -28,8 +29,11 @@ end-to-end validation.
 For local development set `Auth__Authority=http://localhost:8080/realms/chopchop`,
 `Auth__Audience=pantry-api`, and a SQL Server `ConnectionStrings__Pantry`
 using environment variables or user secrets. Start the API with
-`dotnet run --project src\Pantry.Api`. Start `src\Pantry.Client` with
-`VITE_API_URL=http://localhost:5131` and `npm run dev`. The client's
+`dotnet run --project src\Pantry.Api`. Start the unified
+`src\ChopChop.Client` using its README setup; its `VITE_PANTRY_API_URL`
+defaults to `http://localhost:5131`. To run the compatibility app instead,
+start `src\Pantry.Client` with `VITE_API_URL=http://localhost:5131` and
+`npm run dev`. The standalone client's
 `VITE_OIDC_AUTHORITY` and `VITE_OIDC_CLIENT_ID` default to the local realm and
 `chopchop-web`. Reimport or update an existing local Keycloak realm to add the
 Pantry scopes, audience mapper, and silent callback; an existing realm is not
