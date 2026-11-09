@@ -6,7 +6,7 @@ services:
       MSSQL_PID: Developer
       MSSQL_SA_PASSWORD: ${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD in .env.test}
     ports:
-      - "127.0.0.1:1434:1433"
+      - "127.0.0.1:1435:1433"
     volumes:
       - chopchop-test-sql-data:/var/opt/mssql
     healthcheck:

@@ -21,6 +21,9 @@ notepad .env.test
 
 In Notepad, replace the `TEST_DB_PASSWORD` placeholder with a strong local-only
 password, save the file, and close Notepad. Do not commit `.env.test`. Password must meet SQL Server complexity requirements.
+Docker Compose resolves quoting and dollar-sign escapes in this file. Keep the
+password unchanged after the database and broker are initialized: their
+credentials are stored in the persistent volumes.
 
 Install the browser client dependencies:
 
@@ -42,6 +45,7 @@ Wait for startup to finish, then open <http://127.0.0.1:5174>. The launcher
 starts the local database and message broker, applies migrations and sample
 data, builds the APIs, and starts the browser client. Development
 authentication is enabled; no identity-provider account is needed.
+The isolated SQL Server uses `127.0.0.1,1435` on the host.
 
 Press Ctrl+C in the launcher terminal to stop the site. The local database and
 broker data are preserved. For later starts, run the launcher command again

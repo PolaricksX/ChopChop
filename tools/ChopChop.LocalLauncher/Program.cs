@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json;
 
 return await LocalLauncher.RunAsync(args);
 
@@ -37,7 +38,7 @@ internal static class LocalLauncher
         {
             repositoryRoot = FindRepositoryRoot();
             CleanupHelper.ReportPreviousError();
-            password = ReadTestDatabasePassword(repositoryRoot);
+            password = await ReadTestDatabasePasswordAsync(repositoryRoot);
             targets = CreateTargets(repositoryRoot, password);
             ValidateTargets(targets);
         }
@@ -106,7 +107,7 @@ internal static class LocalLauncher
             }
 
             Console.WriteLine("ChopChop: http://127.0.0.1:5174");
-            Console.WriteLine("SQL Server: 127.0.0.1,1434; RabbitMQ: 127.0.0.1:5673");
+            Console.WriteLine("SQL Server: 127.0.0.1,1435; RabbitMQ: 127.0.0.1:5673");
 
             var processExits = processes
                 .Select(async running =>
@@ -186,7 +187,7 @@ internal static class LocalLauncher
         throw new InvalidOperationException("Could not locate the repository root containing Solution.sln.");
     }
 
-    private static string ReadTestDatabasePassword(string repositoryRoot)
+    private static async Task<string> ReadTestDatabasePasswordAsync(string repositoryRoot)
     {
         var envFile = Path.Combine(repositoryRoot, ".env.test");
         if (!File.Exists(envFile))
@@ -195,14 +196,53 @@ internal static class LocalLauncher
                 "Missing .env.test. Copy .env.test.example to .env.test and set a local password first.");
         }
 
-        var passwordLine = File.ReadLines(envFile)
-            .FirstOrDefault(line => line.TrimStart().StartsWith("TEST_DB_PASSWORD=", StringComparison.Ordinal));
-        if (passwordLine is null)
+        using var process = new Process
         {
-            throw new InvalidOperationException("TEST_DB_PASSWORD is missing from .env.test.");
+            StartInfo = CreateStartInfo(
+                "docker",
+                ["compose", "--project-name", ProjectName, "--env-file", envFile,
+                    "-f", Path.Combine(repositoryRoot, "compose.test.yaml"), "config", "--format", "json"],
+                repositoryRoot,
+                null,
+                redirectOutput: true)
+        };
+        try
+        {
+            if (!process.Start())
+            {
+                throw new InvalidOperationException("Could not start Docker Compose.");
+            }
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            throw new InvalidOperationException("Could not start docker; ensure it is installed and on PATH.", exception);
         }
 
-        var password = passwordLine.TrimStart()["TEST_DB_PASSWORD=".Length..].Trim();
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        await Task.WhenAll(output, error, process.WaitForExitAsync());
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException("Docker Compose could not resolve the test configuration. Check .env.test.");
+        }
+
+        return ReadComposePassword(await output);
+    }
+
+    internal static string ReadComposePassword(string configuration)
+    {
+        string? password;
+        try
+        {
+            using var document = JsonDocument.Parse(configuration);
+            password = document.RootElement.GetProperty("services").GetProperty("sqlserver")
+                .GetProperty("environment").GetProperty("MSSQL_SA_PASSWORD").GetString()
+                ?.Replace("$$", "$", StringComparison.Ordinal);
+        }
+        catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            throw new InvalidOperationException("Docker Compose did not provide a valid test database password.", exception);
+        }
         if (string.IsNullOrWhiteSpace(password) || password.StartsWith("ReplaceWith", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Set a strong local TEST_DB_PASSWORD in .env.test before starting.");
@@ -211,11 +251,11 @@ internal static class LocalLauncher
         return password;
     }
 
-    private static List<LaunchTarget> CreateTargets(string repositoryRoot, string password)
+    internal static List<LaunchTarget> CreateTargets(string repositoryRoot, string password)
     {
         var connectionStringBuilder = new DbConnectionStringBuilder
         {
-            ["Server"] = "127.0.0.1,1434",
+            ["Server"] = "127.0.0.1,1435",
             ["Database"] = "ChopChopTest",
             ["User Id"] = "sa",
             ["Password"] = password,
@@ -571,7 +611,7 @@ internal static class LocalLauncher
         return success;
     }
 
-    private sealed record LaunchTarget(
+    internal sealed record LaunchTarget(
         string Name,
         string FileName,
         IReadOnlyList<string> Arguments,
