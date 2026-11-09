@@ -10,7 +10,9 @@
   individually authorized User Equipment service for issue #51. See
   [docs/milestone-3-ai-review-plan.md](docs/milestone-3-ai-review-plan.md),
   [docs/equipment-api.md](docs/equipment-api.md), and
-  [ADR 0007](docs/adr/0007-user-equipment-service-scope.md).
+  [ADR 0007](docs/adr/0007-user-equipment-service-scope.md). See the
+  [Milestone 3 Architecture & Reflection](docs/milestone-3-architecture-reflection.md)
+  for the architecture summary and team reflection.
 - Service setup and API contracts are documented in
   [docs/local-development.md](docs/local-development.md) and
   [docs/api-contracts.md](docs/api-contracts.md). The .NET solution and React
