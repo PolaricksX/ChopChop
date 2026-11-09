@@ -20,7 +20,7 @@ notepad .env.test
 ```
 
 In Notepad, replace the `TEST_DB_PASSWORD` placeholder with a strong local-only
-password, save the file, and close Notepad. Do not commit `.env.test`.
+password, save the file, and close Notepad. Do not commit `.env.test`. Password must meet SQL Server complexity requirements.
 
 Install the browser client dependencies:
 
