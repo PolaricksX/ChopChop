@@ -24,8 +24,10 @@ internal static class LocalLauncher
             return 0;
         }
 
-        var dryRun = args is ["--dry-run"];
-        if (args.Length != 0 && !dryRun)
+        var dryRun = args.Contains("--dry-run", StringComparer.Ordinal);
+        var localAuth = args.Contains("--local-auth", StringComparer.Ordinal);
+        if (args.Any(argument => argument is not "--dry-run" and not "--local-auth")
+            || args.Distinct(StringComparer.Ordinal).Count() != args.Length)
         {
             PrintUsage();
             return 2;
@@ -39,7 +41,8 @@ internal static class LocalLauncher
             repositoryRoot = FindRepositoryRoot();
             CleanupHelper.ReportPreviousError();
             password = await ReadTestDatabasePasswordAsync(repositoryRoot);
-            targets = CreateTargets(repositoryRoot, password);
+            var auth0Authority = localAuth ? null : ReadAuth0Authority();
+            targets = CreateTargets(repositoryRoot, password, localAuth, auth0Authority);
             ValidateTargets(targets);
         }
         catch (InvalidOperationException exception)
@@ -50,7 +53,8 @@ internal static class LocalLauncher
 
         if (dryRun)
         {
-            Console.WriteLine("Configuration is valid. The launcher would start:");
+            Console.WriteLine($"Configuration is valid. Authentication mode: {(localAuth ? "local development auth" : "Auth0")}.");
+            Console.WriteLine("The launcher would start:");
             Console.WriteLine("  Isolated SQL Server and RabbitMQ, then apply migrations and starter data");
             foreach (var target in targets)
             {
@@ -164,8 +168,10 @@ internal static class LocalLauncher
 
     private static void PrintUsage()
     {
-        Console.WriteLine("Usage: dotnet run --project tools\\ChopChop.LocalLauncher [--dry-run]");
+        Console.WriteLine("Usage: dotnet run --project tools\\ChopChop.LocalLauncher [--local-auth] [--dry-run]");
         Console.WriteLine("Starts the isolated test database, seeded data, all APIs, and the unified browser client.");
+        Console.WriteLine("Auth0 is used by default; set CHOPCHOP_AUTH0_DOMAIN to the tenant domain.");
+        Console.WriteLine("Pass --local-auth to use the no-login development authentication mode.");
     }
 
     private static string FindRepositoryRoot()
@@ -251,7 +257,33 @@ internal static class LocalLauncher
         return password;
     }
 
-    internal static List<LaunchTarget> CreateTargets(string repositoryRoot, string password)
+    internal static string ReadAuth0Authority()
+    {
+        var domain = Environment.GetEnvironmentVariable("CHOPCHOP_AUTH0_DOMAIN")?.Trim();
+        if (string.IsNullOrWhiteSpace(domain))
+        {
+            throw new InvalidOperationException(
+                "Set CHOPCHOP_AUTH0_DOMAIN to the Auth0 tenant domain, or pass --local-auth for no-login local testing.");
+        }
+
+        if (domain.Contains("://", StringComparison.Ordinal)
+            || domain.Contains('/')
+            || domain.Contains('?')
+            || domain.Contains('#')
+            || domain.Contains('@'))
+        {
+            throw new InvalidOperationException(
+                "CHOPCHOP_AUTH0_DOMAIN must be a hostname only, without a scheme, path, or credentials.");
+        }
+
+        return $"https://{domain}/";
+    }
+
+    internal static List<LaunchTarget> CreateTargets(
+        string repositoryRoot,
+        string password,
+        bool localAuth = false,
+        string? auth0Authority = null)
     {
         var connectionStringBuilder = new DbConnectionStringBuilder
         {
@@ -265,10 +297,15 @@ internal static class LocalLauncher
         var connectionString = connectionStringBuilder.ConnectionString;
         var rabbitUri = $"amqp://chopchop_test:{Uri.EscapeDataString(password)}@127.0.0.1:5673/";
 
+        if (!localAuth && string.IsNullOrWhiteSpace(auth0Authority))
+        {
+            throw new InvalidOperationException("An Auth0 authority is required unless --local-auth is selected.");
+        }
+
         var apiEnvironment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["ASPNETCORE_ENVIRONMENT"] = DevelopmentEnvironment,
-            ["Auth__DevelopmentMode"] = "true",
+            ["Auth__DevelopmentMode"] = localAuth ? "true" : "false",
             ["ConnectionStrings__ChopChop"] = connectionString,
             ["ConnectionStrings__Equipment"] = connectionString,
             ["ConnectionStrings__Pantry"] = connectionString,
@@ -285,9 +322,14 @@ internal static class LocalLauncher
             ["Cors__AllowedOrigins__1"] = "http://127.0.0.1:5175",
             ["Client__Url"] = "http://127.0.0.1:5174"
         };
+        if (!localAuth)
+        {
+            apiEnvironment["Auth__Authority"] = auth0Authority!;
+        }
+
         var mainClientEnvironment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["VITE_DEV_AUTH"] = "true",
+            ["VITE_DEV_AUTH"] = localAuth ? "true" : "false",
             ["VITE_AI_RECIPE_API_URL"] = "http://127.0.0.1:5081",
             ["VITE_INTERACTIVE_REVIEW_API_URL"] = "http://127.0.0.1:5082",
             ["VITE_RECIPE_MANAGEMENT_API_URL"] = "http://127.0.0.1:20858",
@@ -296,21 +338,20 @@ internal static class LocalLauncher
             ["VITE_EQUIPMENT_API_URL"] = "http://127.0.0.1:5018",
             ["VITE_PANTRY_API_URL"] = "http://127.0.0.1:5131"
         };
-
         return
         [
-            Api("AI Recipe API", "AiRecipeGeneration.Api", "http://127.0.0.1:5081"),
-            Api("Interactive Review API", "InteractiveReview.Api", "http://127.0.0.1:5082"),
-            Api("Recipe Management API", "RecipeManagement.Api", "http://127.0.0.1:20858"),
-            Api("Cookbook API", "Cookbook.Api", "http://127.0.0.1:20860"),
-            Api("Equipment API", "Equipment.Api", "http://127.0.0.1:5018"),
-            Api("Pantry API", "Pantry.Api", "http://127.0.0.1:5131"),
-            Api("Meal Planner API", "MealPlanner.Api", "http://127.0.0.1:5033"),
-            Api("User Service API", "UserService.Api", "http://127.0.0.1:5199"),
+            Api("AI Recipe API", "AiRecipeGeneration.Api", "http://127.0.0.1:5081", "AI_RECIPE"),
+            Api("Interactive Review API", "InteractiveReview.Api", "http://127.0.0.1:5082", "INTERACTIVE_REVIEW"),
+            Api("Recipe Management API", "RecipeManagement.Api", "http://127.0.0.1:20858", "RECIPE_MANAGEMENT"),
+            Api("Cookbook API", "Cookbook.Api", "http://127.0.0.1:20860", "COOKBOOK"),
+            Api("Equipment API", "Equipment.Api", "http://127.0.0.1:5018", "EQUIPMENT"),
+            Api("Pantry API", "Pantry.Api", "http://127.0.0.1:5131", "PANTRY"),
+            Api("Meal Planner API", "MealPlanner.Api", "http://127.0.0.1:5033", "MEAL_PLANNER"),
+            Api("User Service API", "UserService.Api", "http://127.0.0.1:5199", "USER_SERVICE"),
             Client("ChopChop browser client", Path.Combine("src", "ChopChop.Client"), 5174, mainClientEnvironment)
         ];
 
-        LaunchTarget Api(string name, string project, string url) =>
+        LaunchTarget Api(string name, string project, string url, string service) =>
             new(
                 name,
                 "dotnet",
@@ -325,7 +366,18 @@ internal static class LocalLauncher
                     url
                 ],
                 repositoryRoot,
-                apiEnvironment);
+                ApiEnvironment(service));
+
+        IReadOnlyDictionary<string, string> ApiEnvironment(string service)
+        {
+            var environment = new Dictionary<string, string>(apiEnvironment, StringComparer.Ordinal);
+            if (!localAuth)
+            {
+                environment["Auth__Audience"] = Auth0Audiences[service];
+            }
+
+            return environment;
+        }
 
         LaunchTarget Client(
             string name,
@@ -349,6 +401,19 @@ internal static class LocalLauncher
                 environment);
         }
     }
+
+    private static readonly IReadOnlyDictionary<string, string> Auth0Audiences =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["AI_RECIPE"] = "https://api.chopchop.local/ai-recipe-generation",
+            ["INTERACTIVE_REVIEW"] = "https://api.chopchop.local/interactive-review",
+            ["RECIPE_MANAGEMENT"] = "https://api.chopchop.local/recipe-management",
+            ["COOKBOOK"] = "https://api.chopchop.local/cookbook",
+            ["MEAL_PLANNER"] = "https://api.chopchop.local/meal-planner",
+            ["PANTRY"] = "https://api.chopchop.local/pantry",
+            ["EQUIPMENT"] = "https://api.chopchop.local/equipment",
+            ["USER_SERVICE"] = "https://api.chopchop.local/user-service"
+        };
 
     private static void ValidateTargets(IEnumerable<LaunchTarget> targets)
     {

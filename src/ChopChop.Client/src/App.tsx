@@ -127,6 +127,15 @@ function App() {
     }
   }
 
+  const signUp = async () => {
+    setError('')
+    try {
+      await loginWithRedirect({ authorizationParams: { screen_hint: 'signup' } })
+    } catch (loginError) {
+      setError(errorMessage(loginError))
+    }
+  }
+
   const signOut = async () => {
     try {
       await logout({ logoutParams: { returnTo: `${window.location.origin}/` } })
@@ -244,6 +253,7 @@ function App() {
         <p className="lede">Create a recipe draft, share thoughtful feedback, and keep every AI suggestion in your control.</p>
         {(error || authError) && <p role="alert" className="message error">{error || authError?.message}</p>}
         <button className="primary" onClick={signIn}>Sign in to continue</button>
+        <button onClick={signUp}>Create an account</button>
         <p className="small-note">Secure sign-in is provided by Auth0.</p>
       </main>
     )

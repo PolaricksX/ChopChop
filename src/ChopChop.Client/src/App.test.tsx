@@ -49,6 +49,15 @@ describe('App authentication gate', () => {
     expect(authState.loginWithRedirect).toHaveBeenCalledOnce()
   })
 
+  it('starts Auth0 Universal Signup from the create-account action', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
+
+    expect(authState.loginWithRedirect).toHaveBeenCalledWith({
+      authorizationParams: { screen_hint: 'signup' },
+    })
+  })
+
   it('opens the app without Auth0 when local development auth is enabled', async () => {
     vi.stubEnv('VITE_DEV_AUTH', 'true')
     render(<App />)
