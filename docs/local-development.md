@@ -11,7 +11,8 @@ environment.
 ## 1. Start the local dependencies
 
 1. Copy `.env.example` to `.env` and replace every sample password with a
-   different strong local password.
+   different strong local password. `.env.example` contains placeholders only;
+   the repository must not contain a usable local or production credential.
 2. Start the dependencies from the repository root:
 
    ```powershell
@@ -57,6 +58,10 @@ dotnet user-secrets set "AzureOpenAI:ApiKey" "<secret>" --project src\AiRecipeGe
 The adapter appends `/openai/v1/chat/completions` to the endpoint. Never place
 an API key, SQL password, broker password, or OAuth client secret in source
 control, `.env.example`, browser configuration, or test data.
+
+Milestone 4 CI and repository-administration requirements, including the
+required Actions secret and the secret-store boundary, are documented in
+[milestone-4-security-operations.md](milestone-4-security-operations.md).
 
 ## 3. Apply each service's migrations
 

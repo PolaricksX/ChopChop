@@ -113,18 +113,22 @@ public sealed class AuthenticationTests
     private static async Task<HttpResponseMessage> GetModerationQueueAsync(HttpClient client, string? scope)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/moderation/reviews?limit=101");
-        if (scope is not null)
-        {
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-                "Bearer",
-                TestJwt.Create(Guid.NewGuid().ToString(), scope));
-        }
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Bearer",
+            TestJwt.Create(Guid.NewGuid().ToString(), scope));
 
         return await client.SendAsync(request);
     }
 
     private sealed class ApiFactory : WebApplicationFactory<Program>
     {
+        public HttpRequestMessage Request(HttpMethod method, string url, string token)
+        {
+            var request = new HttpRequestMessage(method, url);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            return request;
+        }
+
         protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
         {
             builder.ConfigureAppConfiguration((_, configuration) =>
@@ -133,8 +137,8 @@ public sealed class AuthenticationTests
                     ["Auth:Authority"] = TestJwt.Issuer,
                     ["Auth:Audience"] = TestJwt.Audience,
                     ["Client:Origin"] = "https://client.test",
-                    ["ConnectionStrings:ChopChop"] = "Server=localhost;Database=ChopChopTest;User Id=test;Password=local-test-only;TrustServerCertificate=True",
-                    ["Messaging:ConnectionString"] = "amqp://guest:guest@localhost:5672/",
+                    ["ConnectionStrings:ChopChop"] = "Server=localhost;Database=ChopChopTest;Integrated Security=True;TrustServerCertificate=True",
+                    ["Messaging:ConnectionString"] = "amqp://localhost/",
                     ["BackgroundServices:Enabled"] = "false"
                 }));
             builder.ConfigureServices(services =>
@@ -189,12 +193,13 @@ public sealed class AuthenticationTests
             }
 
             var now = DateTime.UtcNow;
+            var expires = now.Add(lifetime ?? TimeSpan.FromMinutes(5));
             var token = new JwtSecurityToken(
                 issuer ?? Issuer,
                 audience ?? Audience,
                 claims,
-                now.AddMinutes(-1),
-                now.Add(lifetime ?? TimeSpan.FromMinutes(5)),
+                expires < now ? expires.AddMinutes(-5) : now.AddMinutes(-1),
+                expires,
                 new SigningCredentials(signWithUnknownKey ? UnknownKey : SigningKey, SecurityAlgorithms.HmacSha256));
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
