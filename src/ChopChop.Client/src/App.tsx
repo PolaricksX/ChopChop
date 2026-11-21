@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import {
@@ -11,14 +11,19 @@ import {
   moderateReview,
 } from './api'
 import type { Generation, Review } from './api'
-import { getApiAccessToken, setTokenGetter } from './auth'
+import { getApiAccessToken, getTokenOrReauthenticate, setTokenGetter } from './auth'
+import type { TokenOptions } from './auth'
 import './App.css'
 import { RecipeDetails } from './recipes/RecipeDetails'
 import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import { EquipmentTab } from './equipment/EquipmentTab'
+import type { EquipmentPermission } from './equipment/api'
 import type { MealPlannerPermission } from './meal-planning/api'
+import { clearRedirectNavigation, getRedirectNavigation } from './redirectNavigation'
+import type { Panel, RecipeView } from './redirectNavigation'
 
 const MealPlannerDashboard = lazy(() =>
   import('./meal-planning/MealPlannerDashboard').then(({ MealPlannerDashboard }) => ({
@@ -26,28 +31,38 @@ const MealPlannerDashboard = lazy(() =>
   })),
 )
 
-type Panel = 'recipe' | 'recipes' | 'cookbook' | 'meal-planner' | 'review' | 'moderation'
-type RecipeView = 'browse' | 'drafts' | 'new' | 'details' | 'edit'
-
 function App() {
+  const { isLoading } = useAuth0()
+  if (isLoading) {
+    return <main className="shell"><p role="status">Loading your secure session…</p></main>
+  }
+  return <AppContent />
+}
+
+function AppContent() {
   const {
     error: authError,
     getAccessTokenSilently,
+    getAccessTokenWithPopup,
     isAuthenticated,
-    isLoading: authLoading,
     loginWithRedirect,
     logout,
     user,
   } = useAuth0()
-  setTokenGetter((options) => getAccessTokenSilently(options))
   const getMealPlannerAccessToken = useCallback(
     (permission: MealPlannerPermission, forceRefresh = false) =>
       getApiAccessToken('mealPlanner', permission, forceRefresh),
     [],
   )
-  const [activePanel, setActivePanel] = useState<Panel>('recipe')
-  const [recipeView, setRecipeView] = useState<RecipeView>('browse')
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
+  const getEquipmentAccessToken = useCallback(
+    (permission: EquipmentPermission, forceRefresh = false) =>
+      getApiAccessToken('equipment', permission, forceRefresh),
+    [],
+  )
+  const [initialNavigation] = useState(getRedirectNavigation)
+  const [activePanel, setActivePanel] = useState<Panel>(initialNavigation?.activePanel ?? 'recipe')
+  const [recipeView, setRecipeView] = useState<RecipeView>(initialNavigation?.recipeView ?? 'browse')
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(initialNavigation?.selectedRecipeId ?? null)
   const [generation, setGeneration] = useState<Generation | null>(null)
   const [prompt, setPrompt] = useState('')
   const [includePantry, setIncludePantry] = useState(false)
@@ -62,6 +77,48 @@ function App() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const [authorizationRequests, setAuthorizationRequests] = useState<TokenOptions['authorizationParams'][]>([])
+  const [authorizationBusy, setAuthorizationBusy] = useState(false)
+  const authorizationRequest = authorizationRequests[0]
+
+  const tokenGetter = useCallback((options: TokenOptions) =>
+    getTokenOrReauthenticate(options, getAccessTokenSilently, async (authorizationParams) => {
+      setAuthorizationRequests((requests) =>
+        requests.some((request) => request.audience === authorizationParams.audience && request.scope === authorizationParams.scope)
+          ? requests
+          : [...requests, authorizationParams],
+      )
+      throw new Error('Additional sign-in is required. Select Authorize access, then try again.')
+    }),
+  [getAccessTokenSilently])
+  useLayoutEffect(() => {
+    setTokenGetter(tokenGetter)
+    return () => setTokenGetter()
+  }, [tokenGetter])
+
+  const authorizeApi = async () => {
+    const request = authorizationRequest
+    if (!request || authorizationBusy) return
+    setAuthorizationBusy(true)
+    try {
+      const token = await getAccessTokenWithPopup({ authorizationParams: request })
+      if (!token) throw new Error('Auth0 did not return an access token.')
+      setAuthorizationRequests((requests) => requests.slice(1))
+      setNotice('Access authorized. Please try your action again.')
+    } catch (popupError) {
+      setError(popupError instanceof Error ? popupError.message : 'API authorization failed. Please try again.')
+    } finally {
+      setAuthorizationBusy(false)
+    }
+  }
+
+  const cancelAuthorization = () => {
+    setAuthorizationRequests((requests) => requests.slice(1))
+  }
+
+  useEffect(() => {
+    clearRedirectNavigation()
+  }, [])
 
   const generationId = generation?.id
   const generationStatus = generation?.status
@@ -206,10 +263,6 @@ function App() {
     }
   }
 
-  if (authLoading) {
-    return <main className="shell"><p role="status">Loading your secure session…</p></main>
-  }
-
   if (!isAuthenticated) {
     return (
       <main className="shell auth-shell">
@@ -244,12 +297,22 @@ function App() {
         <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
         <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
+        <button className={activePanel === 'equipment' ? 'tab active' : 'tab'} onClick={() => setActivePanel('equipment')}>Equipment</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
 
       {error && <p role="alert" className="message error">{error}</p>}
       {notice && <p role="status" className="message success">{notice}</p>}
+      {authorizationRequest && (
+        <div className="message" role="alert">
+          <p>Your sign-in could not be used for this service automatically. Authorize {authorizationRequest.scope} access, then retry your action.</p>
+          <button type="button" onClick={() => void authorizeApi()} disabled={authorizationBusy}>
+            {authorizationBusy ? 'Authorizing…' : 'Authorize access'}
+          </button>
+          <button type="button" onClick={cancelAuthorization} disabled={authorizationBusy}>Cancel</button>
+        </div>
+      )}
 
       {activePanel === 'recipes' && (
         <section className="panel" aria-labelledby="recipes-heading">
@@ -267,8 +330,8 @@ function App() {
           {recipeView === 'browse' && <RecipeList onSelect={(id) => { setSelectedRecipeId(id); setRecipeView('details') }} />}
           {recipeView === 'details' && selectedRecipeId && <RecipeDetails recipeId={selectedRecipeId} onBack={() => { setSelectedRecipeId(null); setRecipeView('browse') }} />}
           {recipeView === 'drafts' && <RecipeDrafts onEdit={(id) => { setSelectedRecipeId(id); setRecipeView('edit') }} />}
-          {recipeView === 'new' && <RecipeEditor onBack={() => setRecipeView('browse')} />}
-          {recipeView === 'edit' && selectedRecipeId && <RecipeEditor recipeId={selectedRecipeId} onBack={() => { setSelectedRecipeId(null); setRecipeView('drafts') }} />}
+          {recipeView === 'new' && <RecipeEditor onBack={() => setRecipeView('browse')} onSaved={() => { setNotice('Draft saved.'); setRecipeView('drafts') }} />}
+          {recipeView === 'edit' && selectedRecipeId && <RecipeEditor recipeId={selectedRecipeId} onBack={() => { setSelectedRecipeId(null); setRecipeView('drafts') }} onSaved={() => { setSelectedRecipeId(null); setNotice('Draft saved.'); setRecipeView('drafts') }} />}
         </section>
       )}
 
@@ -278,6 +341,7 @@ function App() {
           <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
         </Suspense>
       )}
+      {activePanel === 'equipment' && <EquipmentTab getAccessToken={getEquipmentAccessToken} />}
 
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">

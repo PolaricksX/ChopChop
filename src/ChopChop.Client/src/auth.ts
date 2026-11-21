@@ -1,10 +1,10 @@
-type TokenOptions = {
+export type TokenOptions = {
   authorizationParams: { audience: string; scope: string }
   cacheMode?: 'off'
 }
 
 type TokenGetter = (options: TokenOptions) => Promise<string | undefined>
-export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner'
+export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner' | 'equipment'
 export type ApiPermission =
   | 'recipe-generations.create'
   | 'recipe-generations.read'
@@ -20,10 +20,27 @@ export type ApiPermission =
   | 'cookbook.write'
   | 'mealplans.read'
   | 'mealplans.write'
+  | 'equipment.read'
+  | 'equipment.write'
 
 let tokenGetter: TokenGetter | undefined
 
-export function setTokenGetter(getter: TokenGetter) {
+export async function getTokenOrReauthenticate(
+  options: TokenOptions,
+  getToken: TokenGetter,
+  reauthenticate: (authorizationParams: TokenOptions['authorizationParams']) => Promise<string | undefined>,
+): Promise<string | undefined> {
+  try {
+    return await getToken(options)
+  } catch (tokenError) {
+    const code = typeof tokenError === 'object' && tokenError !== null && 'error' in tokenError
+      ? tokenError.error : undefined
+    if (typeof code !== 'string' || !['missing_refresh_token', 'invalid_grant', 'login_required', 'consent_required'].includes(code)) throw tokenError
+    return reauthenticate(options.authorizationParams)
+  }
+}
+
+export function setTokenGetter(getter?: TokenGetter) {
   tokenGetter = getter
 }
 
@@ -53,6 +70,10 @@ export async function getApiAccessToken(
       audience: import.meta.env.VITE_AUTH0_MEAL_PLANNER_AUDIENCE,
       permissions: ['mealplans.read', 'mealplans.write'],
     },
+    equipment: {
+      audience: import.meta.env.VITE_AUTH0_EQUIPMENT_AUDIENCE,
+      permissions: ['equipment.read', 'equipment.write'],
+    },
   }
   const { audience, permissions } = apiAuth[api]
   if (!permissions.includes(permission)) {
@@ -65,6 +86,7 @@ export async function getApiAccessToken(
       recipes: 'VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE',
       cookbook: 'VITE_AUTH0_COOKBOOK_AUDIENCE',
       mealPlanner: 'VITE_AUTH0_MEAL_PLANNER_AUDIENCE',
+      equipment: 'VITE_AUTH0_EQUIPMENT_AUDIENCE',
     }[api]
     throw new Error(`API access is not configured. Set ${envVariable} in .env.local.`)
   }

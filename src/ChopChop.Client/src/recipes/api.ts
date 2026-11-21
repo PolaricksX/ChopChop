@@ -28,6 +28,9 @@ async function request<T>(
     return request<T>(path, init, permission, false)
   }
   if (!response.ok) {
+    if (response.status === 403 && permission) {
+      throw new RecipeApiError(`Access denied. Your account needs the ${permission} permission in Auth0.`, 403)
+    }
     const problem = await response.json().catch(() => undefined) as { detail?: unknown; error?: unknown } | undefined
     const message = typeof problem?.detail === 'string' ? problem.detail : typeof problem?.error === 'string' ? problem.error : `The request failed (${response.status}).`
     throw new RecipeApiError(message, response.status)

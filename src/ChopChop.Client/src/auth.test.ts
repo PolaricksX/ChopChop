@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getApiAccessToken, setTokenGetter } from './auth'
+import { getApiAccessToken, getTokenOrReauthenticate, setTokenGetter } from './auth'
 
 describe('Auth0 API access tokens', () => {
   const tokenGetter = vi.fn()
@@ -12,6 +12,7 @@ describe('Auth0 API access tokens', () => {
     vi.stubEnv('VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE', 'https://api.chopchop.local/recipe-management')
     vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
     vi.stubEnv('VITE_AUTH0_MEAL_PLANNER_AUDIENCE', 'https://api.chopchop.local/meal-planner')
+    vi.stubEnv('VITE_AUTH0_EQUIPMENT_AUDIENCE', 'https://api.chopchop.local/equipment')
   })
 
   afterEach(() => vi.unstubAllEnvs())
@@ -67,10 +68,29 @@ describe('Auth0 API access tokens', () => {
         scope: 'mealplans.read',
       },
     })
+
     expect(tokenGetter).toHaveBeenNthCalledWith(2, {
       authorizationParams: {
         audience: 'https://api.chopchop.local/meal-planner',
         scope: 'mealplans.write',
+      },
+    })
+  })
+
+  it('requests least-privilege Equipment API permissions from the shared Auth0 client', async () => {
+    await getApiAccessToken('equipment', 'equipment.read')
+    await getApiAccessToken('equipment', 'equipment.write')
+
+    expect(tokenGetter).toHaveBeenNthCalledWith(1, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.read',
+      },
+    })
+    expect(tokenGetter).toHaveBeenNthCalledWith(2, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.write',
       },
     })
   })
@@ -86,5 +106,27 @@ describe('Auth0 API access tokens', () => {
     vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', '')
     await expect(getApiAccessToken('cookbook', 'cookbook.read')).rejects.toThrow('VITE_AUTH0_COOKBOOK_AUDIENCE')
     expect(tokenGetter).not.toHaveBeenCalled()
+  })
+})
+
+describe('missing API refresh token recovery', () => {
+  const options = { authorizationParams: { audience: 'https://api.chopchop.local/cookbook', scope: 'cookbook.read' } }
+
+  it.each(['missing_refresh_token', 'invalid_grant'])('obtains a token through interactive authorization for %s', async (error) => {
+    const getToken = vi.fn().mockRejectedValue({ error })
+    const reauthenticate = vi.fn().mockResolvedValue('popup-token')
+
+    await expect(getTokenOrReauthenticate(options, getToken, reauthenticate)).resolves.toBe('popup-token')
+    expect(reauthenticate).toHaveBeenCalledWith(options.authorizationParams)
+  })
+
+  it('does not sign in again for unrelated token errors', async () => {
+    const failure = new Error('network down')
+    const reauthenticate = vi.fn()
+
+    await expect(
+      getTokenOrReauthenticate(options, vi.fn().mockRejectedValue(failure), reauthenticate),
+    ).rejects.toBe(failure)
+    expect(reauthenticate).not.toHaveBeenCalled()
   })
 })
