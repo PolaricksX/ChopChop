@@ -11,6 +11,8 @@
   [docs/milestone-3-ai-review-plan.md](docs/milestone-3-ai-review-plan.md),
   [docs/equipment-api.md](docs/equipment-api.md), and
   [ADR 0007](docs/adr/0007-user-equipment-service-scope.md).
+- Milestone 4 security operations, CI checks, and secret handling are documented
+  in [docs/milestone-4-security-operations.md](docs/milestone-4-security-operations.md).
 - Service setup and API contracts are documented in
   [docs/local-development.md](docs/local-development.md) and
   [docs/api-contracts.md](docs/api-contracts.md). The .NET solution and React

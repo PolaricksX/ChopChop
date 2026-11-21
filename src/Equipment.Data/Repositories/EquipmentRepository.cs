@@ -1,8 +1,8 @@
+using System.Text;
 using Equipment.Data.Context;
 using Equipment.Domain.Entities;
 using Equipment.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
 
 namespace Equipment.Data.Repositories;
 

@@ -1,5 +1,5 @@
-using Equipment.Domain.Entities;
 using Equipment.Data.Persistence;
+using Equipment.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Equipment.Data.Context;

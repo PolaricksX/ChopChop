@@ -2,10 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Equipment.Data.Context;
 using Equipment.Domain.Entities;
 using Equipment.Domain.Enums;
 using Equipment.IntegrationTests.Support;
-using Equipment.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
