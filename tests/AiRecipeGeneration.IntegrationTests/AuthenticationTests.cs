@@ -236,12 +236,13 @@ public sealed class AuthenticationTests
             }
 
             var now = DateTime.UtcNow;
+            var expires = now.Add(lifetime ?? TimeSpan.FromMinutes(5));
             var token = new JwtSecurityToken(
                 issuer ?? Issuer,
                 audience ?? Audience,
                 claims,
-                now.AddMinutes(-1),
-                now.Add(lifetime ?? TimeSpan.FromMinutes(5)),
+                expires < now ? expires.AddMinutes(-5) : now.AddMinutes(-1),
+                expires,
                 new SigningCredentials(signWithUnknownKey ? UnknownKey : SigningKey, SecurityAlgorithms.HmacSha256));
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
