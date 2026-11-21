@@ -4,6 +4,7 @@ import {
   createEquipment,
   deleteEquipment,
   EquipmentApiError,
+  type EquipmentAccessTokenProvider,
   listEquipment,
   setEquipmentAvailability,
   updateEquipment,
@@ -47,7 +48,7 @@ const emptyFilters: FilterDraft = {
   availability: '',
 }
 
-export function EquipmentTab({ accessToken }: { accessToken: string }) {
+export function EquipmentTab({ getAccessToken }: { getAccessToken: EquipmentAccessTokenProvider }) {
   const [items, setItems] = useState<Equipment[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
@@ -63,12 +64,13 @@ export function EquipmentTab({ accessToken }: { accessToken: string }) {
   const [form, setForm] = useState<EquipmentFormState>(emptyForm)
   // Reused for retries of an identical create so a lost response cannot create a duplicate.
   const createKeyRef = useRef<string | null>(null)
-  const requestKey = JSON.stringify([accessToken, page, filters, refreshKey])
+  const requestKey = JSON.stringify([page, filters, refreshKey])
   const loading = loadedRequestKey !== requestKey
 
   useEffect(() => {
     let active = true
-    void listEquipment(accessToken, { page, pageSize, ...filters })
+    void getAccessToken('equipment.read')
+      .then((accessToken) => listEquipment(accessToken, { page, pageSize, ...filters }))
       .then((result) => {
         if (!active) return
         setTotalCount(result.totalCount)
@@ -90,7 +92,7 @@ export function EquipmentTab({ accessToken }: { accessToken: string }) {
     return () => {
       active = false
     }
-  }, [accessToken, filters, page, refreshKey, requestKey])
+  }, [filters, getAccessToken, page, refreshKey, requestKey])
 
   const applyFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -154,10 +156,12 @@ export function EquipmentTab({ accessToken }: { accessToken: string }) {
     setNotice('')
     try {
       if (editingItem) {
+        const accessToken = await getAccessToken('equipment.write')
         await updateEquipment(accessToken, editingItem.id, editingItem.version, payload)
         setNotice('Equipment updated.')
       } else {
         createKeyRef.current ??= crypto.randomUUID()
+        const accessToken = await getAccessToken('equipment.write')
         await createEquipment(accessToken, payload, createKeyRef.current)
         createKeyRef.current = null
         setNotice('Equipment added.')
@@ -181,6 +185,7 @@ export function EquipmentTab({ accessToken }: { accessToken: string }) {
     setError('')
     setNotice('')
     try {
+      const accessToken = await getAccessToken('equipment.write')
       await setEquipmentAvailability(
         accessToken,
         item.id,
@@ -202,6 +207,7 @@ export function EquipmentTab({ accessToken }: { accessToken: string }) {
     setError('')
     setNotice('')
     try {
+      const accessToken = await getAccessToken('equipment.write')
       await deleteEquipment(accessToken, item)
       setNotice('Equipment deleted.')
       setRefreshKey((key) => key + 1)

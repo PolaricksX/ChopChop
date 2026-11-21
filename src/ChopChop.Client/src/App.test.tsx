@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { getApiAccessToken } from './auth'
 import { handleAuthRedirect } from './redirectNavigation'
 
 const authState = vi.hoisted(() => ({
@@ -117,6 +118,57 @@ describe('App authentication gate', () => {
     expect(authState.getAccessTokenWithPopup).not.toHaveBeenCalled()
   })
 
+  it('preserves distinct authorization requests while a popup is open', async () => {
+    authState.isAuthenticated = true
+    authState.getAccessTokenSilently.mockRejectedValue({ error: 'missing_refresh_token' })
+    vi.stubEnv('VITE_AUTH0_AI_RECIPE_AUDIENCE', 'https://api.chopchop.local/ai')
+    vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
+    let finishPopup: (token: string) => void = () => { throw new Error('Popup not started') }
+    authState.getAccessTokenWithPopup.mockImplementationOnce(() => new Promise<string>((resolve) => {
+      finishPopup = resolve
+    }))
+    render(<App />)
+
+    await act(async () => {
+      await expect(getApiAccessToken('cookbook', 'cookbook.read')).rejects.toThrow('Additional sign-in')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Authorize access' }))
+    await act(async () => {
+      await expect(getApiAccessToken('ai', 'recipe-generations.read')).rejects.toThrow('Additional sign-in')
+      await expect(getApiAccessToken('ai', 'recipe-generations.read')).rejects.toThrow('Additional sign-in')
+    })
+    expect(screen.getByText(/Authorize cookbook.read access/)).toBeInTheDocument()
+    await act(async () => finishPopup('cookbook-token'))
+    expect(screen.getByText(/Authorize recipe-generations.read access/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Authorize access' }))
+    await waitFor(() => expect(authState.getAccessTokenWithPopup).toHaveBeenLastCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/ai',
+        scope: 'recipe-generations.read',
+      },
+    }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Authorize access' })).not.toBeInTheDocument())
+    expect(authState.getAccessTokenWithPopup).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps later authorization requests when the first is cancelled', async () => {
+    authState.isAuthenticated = true
+    authState.getAccessTokenSilently.mockRejectedValue({ error: 'missing_refresh_token' })
+    vi.stubEnv('VITE_AUTH0_AI_RECIPE_AUDIENCE', 'https://api.chopchop.local/ai')
+    vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
+    render(<App />)
+
+    await act(async () => {
+      await expect(getApiAccessToken('cookbook', 'cookbook.read')).rejects.toThrow('Additional sign-in')
+      await expect(getApiAccessToken('ai', 'recipe-generations.read')).rejects.toThrow('Additional sign-in')
+    })
+    expect(screen.getByText(/Authorize cookbook.read access/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByText(/Authorize recipe-generations.read access/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('button', { name: 'Authorize access' })).not.toBeInTheDocument()
+  })
+
   it('restores navigation after an existing Auth0 redirect', async () => {
     authState.isAuthenticated = true
     authState.isLoading = true
@@ -194,10 +246,8 @@ describe('App authentication gate', () => {
   })
 
   it('opens the authenticated Equipment tab', async () => {
-    vi.mocked(userManager.getUser).mockResolvedValue({
-      access_token: 'equipment-token',
-      profile: { name: 'Test cook', preferred_username: 'cook' },
-    } as never)
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_EQUIPMENT_AUDIENCE', 'https://api.chopchop.local/equipment')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       items: [],
       page: 1,
@@ -210,5 +260,11 @@ describe('App authentication gate', () => {
 
     expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeTruthy()
     expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeTruthy()
+    expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.read',
+      },
+    })
   })
 })

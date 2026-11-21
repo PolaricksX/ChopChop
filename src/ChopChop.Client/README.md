@@ -19,8 +19,8 @@ code flow and PKCE. It is a public SPA and must not have a client secret.
 4. Run `npm ci`, then `npm run dev`.
 
 The client supports recipe generation/status/confirmation, review submission
-and reading, a moderator queue, cookbook management, and meal planning. Photos
-are intentionally unavailable.
+and reading, a moderator queue, cookbook management, meal planning, and
+equipment management. Photos are intentionally unavailable.
 
 The client uses cached access tokens or refresh tokens for each API. When an
 API token requires interactive Auth0 authorization, the client offers an
@@ -28,6 +28,7 @@ API token requires interactive Auth0 authorization, the client offers an
 unsubmitted form contents remain in place; retry the action afterward. Allow
 popups for the local client. The silent iframe fallback is disabled because
 blocked third-party cookies can cause it to clear the local sign-in session.
+If multiple permissions need authorization, they are presented one at a time.
 API permissions must also be assigned to the signed-in user in Auth0.
 
 The [Meal Planning client guide](../../docs/meal-planning-client.md) covers the

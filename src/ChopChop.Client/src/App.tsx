@@ -19,6 +19,8 @@ import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import { EquipmentTab } from './equipment/EquipmentTab'
+import type { EquipmentPermission } from './equipment/api'
 import type { MealPlannerPermission } from './meal-planning/api'
 import { clearRedirectNavigation, getRedirectNavigation } from './redirectNavigation'
 import type { Panel, RecipeView } from './redirectNavigation'
@@ -52,6 +54,11 @@ function AppContent() {
       getApiAccessToken('mealPlanner', permission, forceRefresh),
     [],
   )
+  const getEquipmentAccessToken = useCallback(
+    (permission: EquipmentPermission, forceRefresh = false) =>
+      getApiAccessToken('equipment', permission, forceRefresh),
+    [],
+  )
   const [initialNavigation] = useState(getRedirectNavigation)
   const [activePanel, setActivePanel] = useState<Panel>(initialNavigation?.activePanel ?? 'recipe')
   const [recipeView, setRecipeView] = useState<RecipeView>(initialNavigation?.recipeView ?? 'browse')
@@ -70,12 +77,17 @@ function AppContent() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
-  const [authorizationRequest, setAuthorizationRequest] = useState<TokenOptions['authorizationParams'] | null>(null)
+  const [authorizationRequests, setAuthorizationRequests] = useState<TokenOptions['authorizationParams'][]>([])
   const [authorizationBusy, setAuthorizationBusy] = useState(false)
+  const authorizationRequest = authorizationRequests[0]
 
   const tokenGetter = useCallback((options: TokenOptions) =>
     getTokenOrReauthenticate(options, getAccessTokenSilently, async (authorizationParams) => {
-      setAuthorizationRequest(authorizationParams)
+      setAuthorizationRequests((requests) =>
+        requests.some((request) => request.audience === authorizationParams.audience && request.scope === authorizationParams.scope)
+          ? requests
+          : [...requests, authorizationParams],
+      )
       throw new Error('Additional sign-in is required. Select Authorize access, then try again.')
     }),
   [getAccessTokenSilently])
@@ -91,7 +103,7 @@ function AppContent() {
     try {
       const token = await getAccessTokenWithPopup({ authorizationParams: request })
       if (!token) throw new Error('Auth0 did not return an access token.')
-      setAuthorizationRequest(null)
+      setAuthorizationRequests((requests) => requests.slice(1))
       setNotice('Access authorized. Please try your action again.')
     } catch (popupError) {
       setError(popupError instanceof Error ? popupError.message : 'API authorization failed. Please try again.')
@@ -101,7 +113,7 @@ function AppContent() {
   }
 
   const cancelAuthorization = () => {
-    setAuthorizationRequest(null)
+    setAuthorizationRequests((requests) => requests.slice(1))
   }
 
   useEffect(() => {
@@ -285,6 +297,7 @@ function AppContent() {
         <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
         <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
+        <button className={activePanel === 'equipment' ? 'tab active' : 'tab'} onClick={() => setActivePanel('equipment')}>Equipment</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
@@ -293,7 +306,7 @@ function AppContent() {
       {notice && <p role="status" className="message success">{notice}</p>}
       {authorizationRequest && (
         <div className="message" role="alert">
-          <p>Your sign-in could not be used for this service automatically. Authorize access, then retry your action.</p>
+          <p>Your sign-in could not be used for this service automatically. Authorize {authorizationRequest.scope} access, then retry your action.</p>
           <button type="button" onClick={() => void authorizeApi()} disabled={authorizationBusy}>
             {authorizationBusy ? 'Authorizing…' : 'Authorize access'}
           </button>
@@ -328,6 +341,7 @@ function AppContent() {
           <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
         </Suspense>
       )}
+      {activePanel === 'equipment' && <EquipmentTab getAccessToken={getEquipmentAccessToken} />}
 
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">

@@ -12,6 +12,7 @@ describe('Auth0 API access tokens', () => {
     vi.stubEnv('VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE', 'https://api.chopchop.local/recipe-management')
     vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
     vi.stubEnv('VITE_AUTH0_MEAL_PLANNER_AUDIENCE', 'https://api.chopchop.local/meal-planner')
+    vi.stubEnv('VITE_AUTH0_EQUIPMENT_AUDIENCE', 'https://api.chopchop.local/equipment')
   })
 
   afterEach(() => vi.unstubAllEnvs())
@@ -67,10 +68,29 @@ describe('Auth0 API access tokens', () => {
         scope: 'mealplans.read',
       },
     })
+
     expect(tokenGetter).toHaveBeenNthCalledWith(2, {
       authorizationParams: {
         audience: 'https://api.chopchop.local/meal-planner',
         scope: 'mealplans.write',
+      },
+    })
+  })
+
+  it('requests least-privilege Equipment API permissions from the shared Auth0 client', async () => {
+    await getApiAccessToken('equipment', 'equipment.read')
+    await getApiAccessToken('equipment', 'equipment.write')
+
+    expect(tokenGetter).toHaveBeenNthCalledWith(1, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.read',
+      },
+    })
+    expect(tokenGetter).toHaveBeenNthCalledWith(2, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/equipment',
+        scope: 'equipment.write',
       },
     })
   })
@@ -92,8 +112,8 @@ describe('Auth0 API access tokens', () => {
 describe('missing API refresh token recovery', () => {
   const options = { authorizationParams: { audience: 'https://api.chopchop.local/cookbook', scope: 'cookbook.read' } }
 
-  it('obtains a token through interactive authorization when needed', async () => {
-    const getToken = vi.fn().mockRejectedValue({ error: 'missing_refresh_token' })
+  it.each(['missing_refresh_token', 'invalid_grant'])('obtains a token through interactive authorization for %s', async (error) => {
+    const getToken = vi.fn().mockRejectedValue({ error })
     const reauthenticate = vi.fn().mockResolvedValue('popup-token')
 
     await expect(getTokenOrReauthenticate(options, getToken, reauthenticate)).resolves.toBe('popup-token')
