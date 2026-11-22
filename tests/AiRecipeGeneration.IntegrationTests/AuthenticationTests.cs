@@ -128,6 +128,27 @@ public sealed class AuthenticationTests
         Assert.Equal(knownId, unchanged);
     }
 
+    [Theory]
+    [InlineData("POST", "/api/recipe-generations", Policies.GenerationCreate)]
+    [InlineData("GET", "/api/recipe-generations/{id}", Policies.GenerationRead)]
+    [InlineData("POST", "/api/recipe-generations/{id}/confirm", Policies.GenerationConfirm)]
+    public async Task Every_route_enforces_authentication_scope_and_subject(string method, string route, string requiredScope)
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateClient();
+        var url = route.Replace("{id}", Guid.NewGuid().ToString());
+        // Every scope except the one the route needs, so a policy mapped to the wrong scope fails here.
+        var otherScopes = string.Join(' ', new[]
+        {
+            Policies.GenerationCreate, Policies.GenerationRead, Policies.GenerationConfirm,
+        }.Where(scope => scope != requiredScope));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(client, method, url, null));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(client, method, url, TestJwt.Create(Guid.NewGuid().ToString(), "recipes.read")));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(client, method, url, TestJwt.Create(Guid.NewGuid().ToString(), otherScopes)));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(client, method, url, TestJwt.Create(null, requiredScope)));
+    }
+
     [Fact]
     public async Task PublicRootRemainsAnonymousAndOpenApiUsesFallbackAuthorization()
     {
@@ -154,6 +175,18 @@ public sealed class AuthenticationTests
         using var response = await client.SendAsync(request);
 
         Assert.Equal("https://client.test", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+    }
+
+    private static async Task<HttpStatusCode> StatusAsync(HttpClient client, string method, string url, string? token)
+    {
+        using var request = new HttpRequestMessage(new HttpMethod(method), url);
+        if (token is not null)
+        {
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
+
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
     }
 
     private static async Task<HttpResponseMessage> PostGenerationAsync(HttpClient client, string? token)
@@ -217,7 +250,7 @@ public sealed class AuthenticationTests
         };
 
         public static string Create(
-            string subject,
+            string? subject,
             string? scope,
             string? issuer = null,
             string? audience = null,
@@ -225,7 +258,11 @@ public sealed class AuthenticationTests
             bool signWithUnknownKey = false,
             IEnumerable<string>? permissions = null)
         {
-            var claims = new List<Claim> { new("sub", subject) };
+            var claims = new List<Claim>();
+            if (subject is not null)
+            {
+                claims.Add(new Claim("sub", subject));
+            }
             if (scope is not null)
             {
                 claims.Add(new Claim("scope", scope));
