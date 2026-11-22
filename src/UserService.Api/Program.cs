@@ -44,8 +44,8 @@ builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtB
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
-    .AddPolicy(Policies.UsersRead, p => p.RequireAuthenticatedUser().RequireAssertion(c => ScopeClaims.HasScope(c.User, Policies.UsersRead)))
-    .AddPolicy(Policies.UsersWrite, p => p.RequireAuthenticatedUser().RequireAssertion(c => ScopeClaims.HasScope(c.User, Policies.UsersWrite)));
+    .AddPolicy(Policies.UsersRead, p => p.RequireAuthenticatedUser().RequireAssertion(c => ScopeClaims.CanUse(c.User, Policies.UsersRead)))
+    .AddPolicy(Policies.UsersWrite, p => p.RequireAuthenticatedUser().RequireAssertion(c => ScopeClaims.CanUse(c.User, Policies.UsersWrite)));
 
 builder.Services.AddOptions<CorsOptions>().Configure<IConfiguration>((options, configuration) =>
 {
