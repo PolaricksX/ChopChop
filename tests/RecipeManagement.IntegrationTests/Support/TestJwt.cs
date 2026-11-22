@@ -15,12 +15,13 @@ public sealed class TestJwt : IDisposable
 
     public SecurityKey SigningKey => new RsaSecurityKey(rsa) { KeyId = "recipe-test-key" };
 
-    public string Create(string subject, string? scope = "recipes.read recipes.write recipes.publish",
+    public string Create(string? subject, string? scope = "recipes.read recipes.write recipes.publish",
         string issuer = Issuer, string audience = Audience, TimeSpan? lifetime = null, bool signWithUnknownKey = false)
     {
         var expires = DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(5));
         var key = new RsaSecurityKey(signWithUnknownKey ? otherRsa : rsa) { KeyId = "recipe-test-key" };
-        var claims = new List<Claim> { new("sub", subject) };
+        var claims = new List<Claim>();
+        if (subject is not null) claims.Add(new Claim("sub", subject));
         if (scope is not null) claims.Add(new Claim("scope", scope));
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {

@@ -43,11 +43,11 @@ builder.Services.AddAuthorizationBuilder()
         .RequireAuthenticatedUser()
         .Build())
     .AddPolicy(Policies.RecipesRead, policy =>
-        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.RecipesRead)))
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.RecipesRead)))
     .AddPolicy(Policies.RecipesWrite, policy =>
-        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.RecipesWrite)))
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.RecipesWrite)))
     .AddPolicy(Policies.RecipesPublish, policy =>
-        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.RecipesPublish)));
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.RecipesPublish)));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 
