@@ -1,17 +1,12 @@
 {
 	"mcpServers": {
-		"my-mcp-server-88c8c2c2": {
+		"auth0": {
 			"type": "stdio",
 			"command": "npx",
 			"args": [
+				"--yes",
 				"@auth0/auth0-mcp-server",
-				"init",
-				"--client",
-				"vscode",
-				"--scopes",
-				"'update:clients,",
-				"read:clients,",
-				"create:clients'"
+				"run"
 			]
 		}
 	}

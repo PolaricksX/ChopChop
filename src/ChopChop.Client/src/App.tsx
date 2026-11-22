@@ -121,7 +121,7 @@ function App() {
   const signIn = async () => {
     setError('')
     try {
-      await loginWithRedirect()
+      await loginWithRedirect({ authorizationParams: { scope: 'cookbook.read' } })
     } catch (loginError) {
       setError(errorMessage(loginError))
     }
@@ -130,7 +130,7 @@ function App() {
   const signUp = async () => {
     setError('')
     try {
-      await loginWithRedirect({ authorizationParams: { screen_hint: 'signup' } })
+      await loginWithRedirect({ authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup' } })
     } catch (loginError) {
       setError(errorMessage(loginError))
     }

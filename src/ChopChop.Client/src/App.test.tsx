@@ -46,7 +46,9 @@ describe('App authentication gate', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in to continue' }))
 
-    expect(authState.loginWithRedirect).toHaveBeenCalledOnce()
+    expect(authState.loginWithRedirect).toHaveBeenCalledWith({
+      authorizationParams: { scope: 'cookbook.read' },
+    })
   })
 
   it('starts Auth0 Universal Signup from the create-account action', async () => {
@@ -54,7 +56,7 @@ describe('App authentication gate', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
 
     expect(authState.loginWithRedirect).toHaveBeenCalledWith({
-      authorizationParams: { screen_hint: 'signup' },
+      authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup' },
     })
   })
 
