@@ -202,7 +202,6 @@ public class UserEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    [Fact]
     public async Task Admin_can_read_and_disable_any_profile_but_a_normal_user_cannot()
     {
         var ownerCaller = NewCaller();
