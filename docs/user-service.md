@@ -13,6 +13,8 @@ Backend for user profiles (issue #16) and profile picture upload (issue #88). .N
 |---|---|---|---|---|
 | POST | `/` | `users.write` | 201 + `Location` | 400, 401, 403, 409, 429 |
 | GET | `/{id}` | `users.read` | 200 | 401, 403, 404, 429 |
+| GET | `/me` | `users.read` | 200 | 401, 403, 404, 429 |
+| GET | `/{id}/profile-picture` | `users.read` | 200 (file stream) | 401, 403, 404, 429 |
 | PUT | `/{id}` | `users.write` | 200 | 400, 401, 403, 404, 409, 429 |
 | DELETE | `/{id}` | `users.write` | 204 (soft delete) | 401, 403, 404, 429 |
 | PUT | `/{id}/profile-picture` | `users.write` | 204 | 400, 401, 403, 404, 409, 413, 415, 429 |
@@ -27,6 +29,13 @@ Errors are RFC 9457 problem details including `correlationId` (`X-Correlation-Id
 - `POST` requires an `Idempotency-Key` header. Same key and payload replays the original result; same key with a different payload gives 409.
 - `PUT` requires the `version` from the last response; a stale version gives 409.
 - Email and username are unique (case-insensitive) among non-deleted profiles. Deleting frees them.
+
+## Profile retrieval and privacy
+- `GET /api/v1/users/me` resolves the caller profile from the validated token subject (`sub`).
+- `GET /api/v1/users/{id}/profile-picture` is owner-only and returns 404 for non-owners and for missing pictures.
+- Profile-picture responses include `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
+- The service does not expose public or signed profile-picture links.
+- Tokens are never accepted in query strings, and tests verify token values are absent from captured logs.
 
 ## Profile pictures
 `PUT /api/v1/users/{id}/profile-picture` sets or replaces the caller's own profile picture.
@@ -59,7 +68,7 @@ The endpoint accepts requests up to 2 MB so that multipart overhead does not hid
 
 ## Running
 ```
-dotnet ef database update --project src/UserService.Data --startup-project src/UserService.Api
+dotnet ef database update --project src/UserService.Data --startup-project src/UserService.Api --connection "Server=(localdb)\MSSQLLocalDB;Database=ChopChopUserService;Trusted_Connection=True;TrustServerCertificate=True"
 dotnet run --project src/UserService.Api
 dotnet test
 ```
@@ -69,7 +78,7 @@ Migrations are not applied automatically at startup.
 - Soft delete keeps personal data; a purge/retention job is not implemented.
 - No admin role or list endpoint, so no pagination.
 - No `UserDeleted` event yet (planned for a later milestone).
-- No profile picture retrieval endpoint or client UI yet (separate issue).
+- Auth0 SDK caches tokens in browser localStorage (accepted risk, cleared on sign-out).
 - No upload-specific rate limit beyond the service-wide limiter.
 - Uploaded pictures are not scanned for malware (no scanner available).
 - Soft-deleting a profile does not delete its stored picture file.
