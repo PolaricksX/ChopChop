@@ -24,6 +24,7 @@ import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import { ProfilePanel } from './profile/ProfilePanel'
 import type { EquipmentPermission } from './equipment/api'
 import type { MealPlannerPermission } from './meal-planning/api'
 import { clearRedirectNavigation, getRedirectNavigation } from './redirectNavigation'
@@ -331,6 +332,7 @@ function AppContent() {
         <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
         <button className={activePanel === 'pantry' ? 'tab active' : 'tab'} onClick={() => setActivePanel('pantry')}>My Pantry</button>
         <button className={activePanel === 'equipment' ? 'tab active' : 'tab'} onClick={() => setActivePanel('equipment')}>Equipment</button>
+        <button className={activePanel === 'profile' ? 'tab active' : 'tab'} onClick={() => setActivePanel('profile')}>Profile</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
@@ -384,6 +386,7 @@ function AppContent() {
           <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
         </Suspense>
       )}
+      {activePanel === 'profile' && <ProfilePanel />}
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">
           <div className="panel-heading">
