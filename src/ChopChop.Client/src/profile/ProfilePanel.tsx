@@ -23,6 +23,8 @@ export function ProfilePanel({ registerSignOutCleanup }: ProfilePanelProps) {
   const [uploading, setUploading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileMissing, setProfileMissing] = useState(false)
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false)
   const [error, setError] = useState('')
   const [pictureUrl, setPictureUrl] = useState<string | null>(null)
   const [createUsername, setCreateUsername] = useState('')
@@ -48,6 +50,8 @@ export function ProfilePanel({ registerSignOutCleanup }: ProfilePanelProps) {
     setLoading(false)
     setUploading(false)
     setCreating(false)
+    setProfileMissing(false)
+    setProfileLoadFailed(false)
     setError('')
     setProfile(null)
     setCreateUsername('')
@@ -58,6 +62,8 @@ export function ProfilePanel({ registerSignOutCleanup }: ProfilePanelProps) {
 
   const loadProfile = useCallback(async (active: () => boolean = () => true) => {
     setLoading(true)
+    setProfileMissing(false)
+    setProfileLoadFailed(false)
     setError('')
     try {
       const result = await getMyProfile()
@@ -65,15 +71,25 @@ export function ProfilePanel({ registerSignOutCleanup }: ProfilePanelProps) {
 
       setProfile(result)
       if (!result) {
+        setProfileMissing(true)
         replacePicture(null)
         return
       }
 
-      const blob = await getProfilePicture(result.id)
-      if (!active()) return
-      replacePicture(blob)
+      try {
+        const blob = await getProfilePicture(result.id)
+        if (!active()) return
+        replacePicture(blob)
+      } catch (requestError: unknown) {
+        if (active()) setError(messageFor(requestError))
+      }
     } catch (requestError: unknown) {
-      if (active()) setError(messageFor(requestError))
+      if (active()) {
+        setProfile(null)
+        setProfileLoadFailed(true)
+        replacePicture(null)
+        setError(messageFor(requestError))
+      }
     } finally {
       if (active()) setLoading(false)
     }
@@ -162,7 +178,11 @@ export function ProfilePanel({ registerSignOutCleanup }: ProfilePanelProps) {
       {error && <p role="alert" className="message error">{error}</p>}
       {loading && <p role="status">Loading profile…</p>}
 
-      {!loading && profile === null && (
+      {!loading && profileLoadFailed && profile === null && (
+        <button type="button" onClick={() => { void loadProfile() }}>Try again</button>
+      )}
+
+      {!loading && profileMissing && profile === null && (
         <>
           <p>No profile yet</p>
           <form onSubmit={(event) => { void submitCreateProfile(event) }}>

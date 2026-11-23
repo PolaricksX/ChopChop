@@ -85,6 +85,38 @@ describe('ProfilePanel', () => {
     expect(new URL(url).pathname).toBe('/api/v1/users/me')
   })
 
+  it('shows an error and no create form when /users/me fails with 500', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(
+      JSON.stringify({ detail: 'The request failed unexpectedly.' }),
+      { status: 500, headers: { 'Content-Type': 'application/problem+json' } },
+    ))
+
+    render(<ProfilePanel />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The request failed unexpectedly.')
+    expect(screen.queryByText('No profile yet')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Create profile' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('reloads /users/me when "Try again" is clicked after a load error', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+
+    render(<ProfilePanel />)
+
+    await screen.findByRole('alert')
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('No profile yet')).toBeInTheDocument()
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
+
+    for (const [requestUrl] of vi.mocked(fetch).mock.calls as [URL, RequestInit][]) {
+      expect(new URL(requestUrl).pathname).toBe('/api/v1/users/me')
+    }
+  })
+
   it('renders a profile picture from an object URL', async () => {
     createObjectUrl.mockReturnValue('blob:first-picture')
     vi.mocked(fetch)
@@ -204,7 +236,8 @@ describe('ProfilePanel', () => {
     await waitFor(() => expect(screen.queryByText('Taylor Cook')).toBeNull())
     expect(screen.queryByText('taylor@example.com')).toBeNull()
     expect(screen.queryByRole('img', { name: 'Profile picture' })).toBeNull()
-    expect(screen.getByText('No profile yet')).toBeInTheDocument()
+    expect(screen.queryByText('No profile yet')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
   })
 
   it('after sign-out and sign-in as another user, previous profile details are not shown', async () => {
