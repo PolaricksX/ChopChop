@@ -47,3 +47,6 @@ database connection; Equipment uses `ConnectionStrings:Equipment`.
 The React browser client is in `src/ChopChop.Client`; meal planning is available
 from its Meal Plans tab. See the [Meal Planning client guide](docs/meal-planning-client.md)
 for setup and API behavior.
+
+For Auth0 setup on a classmate's PC, see the
+[Auth0 classmate setup guide](docs/auth0-classmate-setup.md).
