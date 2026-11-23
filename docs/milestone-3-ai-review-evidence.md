@@ -47,15 +47,15 @@ authorization server, and each ChopChop API is its own resource server.
 
 | API operation | Policy and required scope | Ownership |
 |---|---|---|
-| `POST /api/recipe-generations` | `recipe-generations.create` | Owner taken from the token subject |
+| `POST /api/recipe-generations` | `recipe-generations.create` (Pro Chef role) | Owner taken from the token subject |
 | `GET /api/recipe-generations/{id}` | `recipe-generations.read` | `404` if the generation is not the caller's |
-| `POST /api/recipe-generations/{id}/confirm` | `recipe-generations.confirm` | `404` if the generation is not the caller's |
+| `POST /api/recipe-generations/{id}/confirm` | `recipe-generations.confirm` (Pro Chef role) | `404` if the generation is not the caller's |
 | `POST /api/reviews` | `reviews.create` | Owner taken from the token subject |
 | `GET /api/reviews/{id}` | `reviews.read` | `404` if the review is not the caller's |
 | `GET /api/recipes/{recipeId}/reviews` | `reviews.read` | Published reviews only |
 | `PUT /api/reviews/{id}`, `DELETE /api/reviews/{id}` | `reviews.write` | `404` if the review is not the caller's |
-| `GET /api/moderation/reviews` | `reviews.moderate` | Pending queue |
-| `POST /api/moderation/reviews/{id}` | `reviews.moderate` | `403` when the moderator is the review's author |
+| `GET /api/moderation/reviews` | `reviews.moderate` (Admin or review-moderator role) | Pending queue |
+| `POST /api/moderation/reviews/{id}` | `reviews.moderate` (Admin or review-moderator role) | `403` when the moderator is the review's author |
 | `/`, `/health` | Explicitly anonymous | None |
 | OpenAPI | Authenticated fallback policy | None |
 

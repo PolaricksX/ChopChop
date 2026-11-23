@@ -22,10 +22,14 @@ environment.
    The compose file starts SQL Server on `1433`, RabbitMQ on `5672` (management
    UI `15672`), and Keycloak on `8080`. Keycloak imports the `chopchop` realm,
    the public `chopchop-web` client, the `chopchop-api` audience mapper, and
-   the `review-moderator` realm role.
+   the `review-moderator`, `admin`, and `pro-chef` realm roles.
 3. Use Keycloak's realm registration page to create a local account. To test
    moderation, assign the `review-moderator` realm role to a local test user
-   from the Keycloak admin console.
+   from the Keycloak admin console. Assign `admin` or `pro-chef` the same way
+   (see [ADR 0008](adr/0008-admin-and-pro-chef-roles.md)); the realm emits the
+   role's permissions in the access token `permissions` claim. An existing
+   local realm is not updated by re-importing: add the roles and the
+   "Realm roles as permissions" mapper manually or recreate the realm.
 
 ## 2. Configure local secrets
 
@@ -190,14 +194,24 @@ secrets:
 |---|---|---|
 | AI Recipe Generation | `https://api.chopchop.local/ai-recipe-generation` | `recipe-generations.create`, `recipe-generations.read`, `recipe-generations.confirm` |
 | Interactive Review | `https://api.chopchop.local/interactive-review` | `reviews.create`, `reviews.read`, `reviews.write`, `reviews.moderate` |
-| Recipe Management | `https://api.chopchop.local/recipe-management` | `recipes.read`, `recipes.write`, `recipes.publish` |
+| Recipe Management | `https://api.chopchop.local/recipe-management` | `recipes.read`, `recipes.write`, `recipes.publish`, `recipes.admin` |
 | Cookbook | `https://api.chopchop.local/cookbook` | `cookbook.read`, `cookbook.write` |
-| User Service | `https://api.chopchop.local/user-service` | `users.read`, `users.write` |
+| User Service | `https://api.chopchop.local/user-service` | `users.read`, `users.write`, `users.admin` |
 | Meal Planner | `https://api.chopchop.local/meal-planner` | `mealplans.read`, `mealplans.write` |
 
 For each API, set its signing algorithm to RS256, enable RBAC, and enable
 permissions in the access token. Assign only the needed permissions to user
-roles: `reviews.moderate` should be granted only to moderators. The browser
+roles. Create these Auth0 roles ([ADR 0008](adr/0008-admin-and-pro-chef-roles.md)):
+
+| Role | Permissions to assign |
+|---|---|
+| Pro Chef | `recipe-generations.create`, `recipe-generations.confirm` (AI Recipe Generation API) |
+| Admin | `reviews.moderate` (Interactive Review), `users.admin` (User Service), `recipes.admin` (Recipe Management) |
+
+Give every signed-in user the ordinary read/write permissions through a base
+role or default role; grant `reviews.moderate`, `users.admin`, `recipes.admin`,
+and the generation create/confirm permissions only through the roles above.
+The browser
 client requests user-delegated access; do not enable a client secret or use
 client-credentials access from the browser. Public endpoints need no scope.
 The client uses scopes from its API-specific list and each API also recognizes
