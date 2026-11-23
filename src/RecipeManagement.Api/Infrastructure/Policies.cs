@@ -8,6 +8,7 @@ public static class Policies
     public const string RecipesRead = "recipes.read";
     public const string RecipesWrite = "recipes.write";
     public const string RecipesPublish = "recipes.publish";
+    public const string RecipesAdmin = "recipes.admin";
 }
 
 public static class ScopeClaims

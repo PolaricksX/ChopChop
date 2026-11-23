@@ -16,6 +16,8 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
         ["POST", "/api/v1/recipes/00000000-0000-0000-0000-000000000001/unpublish"],
         ["GET", "/api/v1/recipes/drafts"],
         ["GET", "/api/v1/recipes/00000000-0000-0000-0000-000000000001/draft"],
+        ["POST", "/api/v1/admin/recipes/00000000-0000-0000-0000-000000000001/unpublish"],
+        ["DELETE", "/api/v1/admin/recipes/00000000-0000-0000-0000-000000000001"],
     ];
 
     private static object Body() => new
@@ -59,9 +61,10 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
     {
         var isPublishRoute = url.EndsWith("/publish") || url.EndsWith("/unpublish");
         // Every scope except the one the route needs, so a policy mapped to the wrong scope fails here.
-        var otherScopes = isPublishRoute ? "recipes.read recipes.write"
-            : method == "GET" ? "recipes.write recipes.publish"
-            : "recipes.read recipes.publish";
+        var otherScopes = url.Contains("/admin/") ? "recipes.read recipes.write recipes.publish"
+            : isPublishRoute ? "recipes.read recipes.write recipes.admin"
+            : method == "GET" ? "recipes.write recipes.publish recipes.admin"
+            : "recipes.read recipes.publish recipes.admin";
 
         Assert.Equal(HttpStatusCode.Unauthorized, await ProtectedRouteAsync(method, url, null));
         Assert.Equal(HttpStatusCode.Forbidden, await ProtectedRouteAsync(method, url, factory.Jwt.Create("user", "users.read")));

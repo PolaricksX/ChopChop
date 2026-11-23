@@ -70,6 +70,42 @@ public sealed class RecipeEndpointsTests(ApiFactory factory) : IClassFixture<Api
     }
 
     [Fact]
+    public async Task Admin_can_unpublish_or_remove_any_recipe_but_the_owners_scopes_cannot_use_admin_routes()
+    {
+        var owner = NewCaller();
+        var admin = new Caller(Guid.NewGuid().ToString(), factory.Jwt.Create(Guid.NewGuid().ToString(), "recipes.admin"));
+        var recipeIds = new List<Guid>();
+        foreach (var title in new[] { "Takedown", "Removal" })
+        {
+            using var create = await SendAsync(owner, HttpMethod.Post, Recipes, Body(title));
+            var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("recipeId").GetGuid();
+            using var publish = await SendAsync(owner, HttpMethod.Post, $"{Recipes}/{id}/publish");
+            Assert.Equal(HttpStatusCode.OK, publish.StatusCode);
+            recipeIds.Add(id);
+        }
+
+        var (takedown, removal) = (recipeIds[0], recipeIds[1]);
+        using var ownerUnpublish = await SendAsync(owner, HttpMethod.Post, $"/api/v1/admin/recipes/{takedown}/unpublish");
+        using var ownerRemove = await SendAsync(owner, HttpMethod.Delete, $"/api/v1/admin/recipes/{removal}");
+        Assert.Equal(HttpStatusCode.Forbidden, ownerUnpublish.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, ownerRemove.StatusCode);
+
+        using var unpublish = await SendAsync(admin, HttpMethod.Post, $"/api/v1/admin/recipes/{takedown}/unpublish");
+        using var remove = await SendAsync(admin, HttpMethod.Delete, $"/api/v1/admin/recipes/{removal}");
+        using var unknown = await SendAsync(admin, HttpMethod.Delete, $"/api/v1/admin/recipes/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NoContent, unpublish.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, remove.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+
+        using var takedownPublic = await client.GetAsync($"{Recipes}/{takedown}");
+        using var removalPublic = await client.GetAsync($"{Recipes}/{removal}");
+        using var removalDraft = await SendAsync(owner, HttpMethod.Get, $"{Recipes}/{removal}/draft");
+        Assert.Equal(HttpStatusCode.NotFound, takedownPublic.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, removalPublic.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, removalDraft.StatusCode);
+    }
+
+    [Fact]
     public async Task Another_user_cannot_change_a_draft_and_drafts_are_not_public()
     {
         var owner = NewCaller();
