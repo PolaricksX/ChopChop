@@ -39,6 +39,6 @@ is hosted on GitHub; use GitHub issues and pull requests for repository work.
 ### User and Profile — profile picture upload (#88)
 
 The implementation plan and approved choices are recorded in
-[milestone-3-profile-picture-plan.md](milestone-3-profile-picture-plan.md).
+[milestone-4-profile-picture-plan.md](milestone-4-profile-picture-plan.md).
 The implementation evidence is tracked in
-[milestone-3-profile-picture-evidence.md](milestone-3-profile-picture-evidence.md).
+[milestone-4-profile-picture-evidence.md](milestone-4-profile-picture-evidence.md).

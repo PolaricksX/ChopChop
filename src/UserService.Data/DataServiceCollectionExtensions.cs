@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using UserService.Data.Images;
 using UserService.Data.Context;
+using UserService.Data.Images;
 using UserService.Data.Repositories;
 using UserService.Data.Storage;
 using UserService.Domain.Entities;

@@ -1,4 +1,4 @@
-# Milestone 3 Implementation Plan: User and Profile Profile Picture Upload (#88)
+# Milestone 4 Implementation Plan: User and Profile Profile Picture Upload (#88)
 
 ## Status
 
@@ -46,7 +46,7 @@ These decisions are treated as fixed and drive all implementation steps:
 6. Content type: detect from signature and reject if declared type is disallowed
    or mismatched vs detected format.
 7. Integrity: decode with SkiaSharp (latest stable, MIT license, centrally
-   managed package version). SixLabors.SkiaSharp was rejected during
+   managed package version). SixLabors.ImageSharp was rejected during
    implementation: 3.1.x has unpatched high-severity advisories
    (NuGet audit NU1903) and 4.x requires a Six Labors license key at build time.
 8. Atomicity: full validation before write; write new file then persist DB
@@ -243,7 +243,7 @@ These decisions are treated as fixed and drive all implementation steps:
 
 ### Files to add
 
-- `docs/milestone-3-profile-picture-evidence.md`
+- `docs/milestone-4-profile-picture-evidence.md`
   - Implementation + validation evidence log for issue #88.
 
 ### Files to change
@@ -342,7 +342,7 @@ command/output and do not report it as passed.
 
 ## Evidence document requirements
 
-Create and maintain `docs/milestone-3-profile-picture-evidence.md` with:
+Create and maintain `docs/milestone-4-profile-picture-evidence.md` with:
 
 1. Scope statement (UserService only, no client/Keycloak changes).
 2. File list grouped by Domain/Data/API/Tests/Docs.
