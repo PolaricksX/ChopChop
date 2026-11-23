@@ -13,7 +13,21 @@ public sealed class SkiaSharpImageIntegrityChecker : IImageIntegrityChecker
             return Task.FromResult(false);
         }
 
-        using var bitmap = SKBitmap.Decode(imageBytes);
-        return Task.FromResult(bitmap is not null && bitmap.Width > 0 && bitmap.Height > 0);
+        try
+        {
+            using var data = SKData.CreateCopy(imageBytes);
+            using var codec = SKCodec.Create(data);
+            if (codec is null || codec.Info.Width <= 0 || codec.Info.Height <= 0)
+            {
+                return Task.FromResult(false);
+            }
+
+            using var bitmap = SKBitmap.Decode(codec);
+            return Task.FromResult(bitmap is not null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Task.FromResult(false);
+        }
     }
 }
