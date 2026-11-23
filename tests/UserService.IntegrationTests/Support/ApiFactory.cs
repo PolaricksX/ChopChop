@@ -19,6 +19,7 @@ namespace UserService.IntegrationTests.Support;
 public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly string databaseName = $"UserServiceTests_{Guid.NewGuid():N}";
+    private readonly string profilePicturesRoot = Path.Combine(Path.GetTempPath(), $"UserServiceProfilePictures_{Guid.NewGuid():N}");
 
     public TestJwt Jwt { get; } = new();
 
@@ -43,6 +44,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["Auth:Authority"] = TestJwt.Issuer,
             ["Auth:Audience"] = TestJwt.Audience,
             ["RateLimiting:PermitLimit"] = PermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["ProfilePictures:RootPath"] = profilePicturesRoot,
         }));
 
         // Keep the real bearer handler; only supply the signing keys it would normally download from the issuer.
@@ -69,6 +71,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
 
         Jwt.Dispose();
+        if (Directory.Exists(profilePicturesRoot))
+        {
+            Directory.Delete(profilePicturesRoot, recursive: true);
+        }
+
         await DisposeAsync();
     }
 

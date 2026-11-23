@@ -71,6 +71,22 @@ if needed, then run `npm ci` and `npm run dev` from `src\ChopChop.Client`.
 The client uses port 5173 for this manual setup. Its `.env.local` contains
 public API URLs and Auth0 settings, never client secrets.
 
+## User Service profile pictures
+
+User Service stores uploaded profile pictures on the local filesystem. Set an
+absolute storage folder outside the repository and any web root as a user
+secret. `appsettings.Development.json` contains only a `<your-user>`
+placeholder, which is not a valid Windows path, so uploads fail until this is
+set. Then apply the User Service migrations, including `AddUserProfilePicture`:
+
+```powershell
+dotnet user-secrets set "ProfilePictures:RootPath" "$env:LOCALAPPDATA\ChopChop\UserService\ProfilePictures" --project src\UserService.Api
+dotnet ef database update --project src\UserService.Data --startup-project src\UserService.Api --context UserServiceDbContext
+```
+
+Uploads use `PUT /api/v1/users/{id}/profile-picture` (multipart/form-data,
+JPEG or PNG, max 1 MB). Never commit the storage folder or its contents.
+
 ## Auth0
 
 For the manual client origin, Auth0 must allow `http://localhost:5173/` as a

@@ -79,6 +79,15 @@ broker data are preserved. For later starts, run the launcher command again
 from the repository root; repeat `npm ci` only if the client dependencies need
 to be installed or updated.
 
+## Profile pictures
+
+The launcher does not configure profile picture storage. Before uploading a
+profile picture, set the storage folder once with .NET user secrets:
+
+```powershell
+dotnet user-secrets set "ProfilePictures:RootPath" "$env:LOCALAPPDATA\ChopChop\UserService\ProfilePictures" --project src\UserService.Api
+```
+
 ## AI provider and security operations
 
 For AI generation, configure `AzureOpenAI:Endpoint`, `AzureOpenAI:Deployment`,

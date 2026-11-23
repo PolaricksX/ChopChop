@@ -50,6 +50,24 @@ public static class UserEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        const long profilePictureRequestLimitBytes = 2 * 1024 * 1024;
+        group.MapPut("/{id:guid}/profile-picture", PutProfilePictureAsync)
+            .RequireAuthorization(Policies.UsersWrite)
+            .WithName("PutUserProfilePicture")
+            .WithSummary("Uploads or replaces the caller's profile picture (multipart/form-data, one file).")
+            .Accepts<IFormFile>("multipart/form-data")
+            .WithMetadata(new RequestSizeLimitAttribute(profilePictureRequestLimitBytes))
+            .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = profilePictureRequestLimitBytes })
+            .DisableAntiforgery() // Bearer-token API endpoint; no cookie authentication flow.
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
         return app;
     }
 
@@ -92,6 +110,29 @@ public static class UserEndpoints
     private static async Task<IResult> DeleteAsync(Guid id, ICurrentUser user, UserProfileService users, CancellationToken token)
     {
         await users.DeleteAsync(user.Id, id, token);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> PutProfilePictureAsync(
+        Guid id,
+        HttpRequest request,
+        IFormFile? file,
+        ICurrentUser user,
+        UserProfileService users,
+        CancellationToken token)
+    {
+        if (file is null)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["file"] = ["Exactly one profile picture file is required."] });
+        }
+
+        var form = await request.ReadFormAsync(token);
+        if (form.Files.Count != 1)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["file"] = ["Exactly one profile picture file is required."] });
+        }
+
+        await users.ReplaceProfilePictureAsync(user.Id, id, file, token);
         return Results.NoContent();
     }
 }

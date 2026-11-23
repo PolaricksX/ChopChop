@@ -8,6 +8,8 @@ namespace UserService.Data.Configurations;
 internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
 {
     private const string ActiveOnly = "[DeletedAt] IS NULL";
+    private const int ProfilePictureKeyMaxLength = 128;
+    private const int ProfilePictureContentTypeMaxLength = 127;
 
     public void Configure(EntityTypeBuilder<UserProfile> builder)
     {
@@ -20,6 +22,8 @@ internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserPr
         builder.Property(x => x.NormalizedUsername).HasMaxLength(UserProfileRules.UsernameMaxLength).IsRequired();
         builder.Property(x => x.Email).HasMaxLength(UserProfileRules.EmailMaxLength).IsRequired();
         builder.Property(x => x.DisplayName).HasMaxLength(UserProfileRules.DisplayNameMaxLength);
+        builder.Property(x => x.ProfilePictureKey).HasMaxLength(ProfilePictureKeyMaxLength);
+        builder.Property(x => x.ProfilePictureContentType).HasMaxLength(ProfilePictureContentTypeMaxLength);
         builder.Property(x => x.RowVersion).IsRowVersion();
         builder.Ignore(x => x.IsDeleted);
 
