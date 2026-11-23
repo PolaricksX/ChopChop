@@ -107,6 +107,31 @@ Cookbook local development quick reference:
 - Migration override: set `ConnectionStrings__Cookbook` before running `dotnet ef database update` for `CookbookDbContext`.
 - Client API URL setting: `VITE_COOKBOOK_API_URL=http://localhost:20860` in `src\ChopChop.Client\.env.local`.
 
+### User Service
+
+User Service stores uploaded profile pictures on the local filesystem. Set the
+storage folder through user secrets. The path must be absolute and outside the
+repository and any web root. `appsettings.Development.json` contains only a
+`<your-user>` placeholder, which is not a valid Windows path, so uploads fail
+until this secret is set:
+
+```powershell
+dotnet user-secrets set "ProfilePictures:RootPath" "$env:LOCALAPPDATA\ChopChop\UserService\ProfilePictures" --project src\UserService.Api
+```
+
+Apply the User Service migrations (including `AddUserProfilePicture`) from the
+repository root:
+
+```powershell
+dotnet ef database update --project src\UserService.Data --startup-project src\UserService.Api --context UserServiceDbContext
+```
+
+User Service local development quick reference:
+
+- User secret key: `ProfilePictures:RootPath` on `src\UserService.Api`.
+- Profile picture upload: `PUT /api/v1/users/{id}/profile-picture` (multipart/form-data, JPEG or PNG, max 1 MB).
+- Never commit the storage folder or its contents.
+
 ## 4. Start APIs and client
 
 Open separate PowerShell terminals from the repository root:
