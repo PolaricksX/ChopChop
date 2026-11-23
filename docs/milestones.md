@@ -7,6 +7,7 @@ The current assigned work is:
 - [#23 — Recipe Management](https://github.com/PolaricksX/ChopChop/issues/23)
 - [#32 — Cookbook](https://github.com/PolaricksX/ChopChop/issues/32)
 - [#51 — User Equipment](https://github.com/PolaricksX/ChopChop/issues/51)
+- [#88 — User and Profile: profile picture upload, validation, and storage](https://github.com/PolaricksX/ChopChop/issues/88)
 
 Each assignment is limited to its own independently runnable services and
 their shared client/infrastructure support. Other service ownership remains
@@ -34,3 +35,10 @@ distribution, a milestone PR, peer signoff, and submission. Those team-level
 requirements cannot be claimed complete by the implementation of any
 individual assignment. The PDF specifies Azure DevOps PRs, but this repository
 is hosted on GitHub; use GitHub issues and pull requests for repository work.
+
+### User and Profile — profile picture upload (#88)
+
+The implementation plan and approved choices are recorded in
+[milestone-3-profile-picture-plan.md](milestone-3-profile-picture-plan.md).
+The implementation evidence is tracked in
+[milestone-3-profile-picture-evidence.md](milestone-3-profile-picture-evidence.md).
