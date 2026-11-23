@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Serilog.Core;
 using UserService.Data.Context;
 
 namespace UserService.IntegrationTests.Support;
@@ -20,8 +21,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly string databaseName = $"UserServiceTests_{Guid.NewGuid():N}";
     private readonly string profilePicturesRoot = Path.Combine(Path.GetTempPath(), $"UserServiceProfilePictures_{Guid.NewGuid():N}");
+    private readonly CapturedLogSink capturedLogSink = new();
 
     public TestJwt Jwt { get; } = new();
+    public CapturedLogSink Logs => capturedLogSink;
 
     public int PermitLimit { get; init; } = 10_000;
 
@@ -48,13 +51,18 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }));
 
         // Keep the real bearer handler; only supply the signing keys it would normally download from the issuer.
-        builder.ConfigureServices(services => services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+        builder.ConfigureServices(services =>
         {
-            var configuration = new OpenIdConnectConfiguration { Issuer = TestJwt.Issuer };
-            configuration.SigningKeys.Add(Jwt.SigningKey);
-            options.Configuration = configuration;
-            options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
-        }));
+            services.AddSingleton(capturedLogSink);
+            services.AddSingleton<ILogEventSink>(capturedLogSink);
+            services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+            {
+                var configuration = new OpenIdConnectConfiguration { Issuer = TestJwt.Issuer };
+                configuration.SigningKeys.Add(Jwt.SigningKey);
+                options.Configuration = configuration;
+                options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+            });
+        });
     }
 
     public async Task InitializeAsync()
