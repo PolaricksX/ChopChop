@@ -6,6 +6,7 @@ public static class Policies
 {
     public const string UsersRead = "users.read";
     public const string UsersWrite = "users.write";
+    public const string UsersAdmin = "users.admin";
 }
 
 public static class ScopeClaims

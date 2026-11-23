@@ -15,6 +15,10 @@ Backend for user profiles (issue #16). .NET 10, EF Core + SQL Server, JWT bearer
 | GET | `/{id}` | `users.read` | 200 | 401, 403, 404, 429 |
 | PUT | `/{id}` | `users.write` | 200 | 400, 401, 403, 404, 409, 429 |
 | DELETE | `/{id}` | `users.write` | 204 (soft delete) | 401, 403, 404, 429 |
+| GET | `/api/v1/admin/users/{id}` | `users.admin` | 200 (any profile) | 401, 403, 404, 429 |
+| DELETE | `/api/v1/admin/users/{id}` | `users.admin` | 204 (disable = soft delete, any profile) | 401, 403, 404, 429 |
+
+`users.admin` is granted only through the Admin role ([ADR 0008](adr/0008-admin-and-pro-chef-roles.md)). Admin reads and disables are logged with the acting subject and the target profile ID.
 
 `GET /health` is anonymous. OpenAPI is served at `/openapi/v1.json` in Development only.
 Errors are RFC 9457 problem details including `correlationId` (`X-Correlation-Id` header).

@@ -31,6 +31,9 @@ public sealed class FakeUserProfileRepository : InMemoryRepository<UserProfile>,
     public Task<UserProfile?> GetOwnedAsync(Guid id, string subject, bool forUpdate, CancellationToken token) =>
         Task.FromResult(Items.FirstOrDefault(x => x.Id == id && x.Subject == subject && !x.IsDeleted));
 
+    public Task<UserProfile?> GetByIdAsync(Guid id, bool forUpdate, CancellationToken token) =>
+        Task.FromResult(Items.FirstOrDefault(x => x.Id == id && !x.IsDeleted));
+
     public Task<UserProfile?> GetBySubjectAsync(string subject, CancellationToken token) =>
         Task.FromResult(Items.FirstOrDefault(x => x.Subject == subject && !x.IsDeleted));
 

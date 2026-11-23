@@ -50,6 +50,31 @@ public static class UserEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        var admin = app.MapGroup("/api/v1/admin/users").WithTags("User administration");
+
+        admin.MapGet("/{id:guid}", async (Guid id, ICurrentUser user, UserProfileService users, CancellationToken token) =>
+                Results.Ok((await users.GetAsAdminAsync(user.Id, id, token)).ToResponse()))
+            .RequireAuthorization(Policies.UsersAdmin)
+            .WithName("AdminGetUser")
+            .WithSummary("Reads any user's profile. Requires the users.admin scope.")
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        admin.MapDelete("/{id:guid}", async (Guid id, ICurrentUser user, UserProfileService users, CancellationToken token) =>
+            {
+                await users.DisableAsAdminAsync(user.Id, id, token);
+                return Results.NoContent();
+            })
+            .RequireAuthorization(Policies.UsersAdmin)
+            .WithName("AdminDisableUser")
+            .WithSummary("Disables (soft-deletes) any user's profile. Requires the users.admin scope.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
     }
 

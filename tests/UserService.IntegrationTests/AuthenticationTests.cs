@@ -84,10 +84,18 @@ public class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("GET", "/api/v1/users/{id}", "users.read")]
     [InlineData("PUT", "/api/v1/users/{id}", "users.write")]
     [InlineData("DELETE", "/api/v1/users/{id}", "users.write")]
+    [InlineData("GET", "/api/v1/admin/users/{id}", "users.admin")]
+    [InlineData("DELETE", "/api/v1/admin/users/{id}", "users.admin")]
     public async Task Every_route_enforces_authentication_scope_direction_and_subject(string method, string route, string requiredScope)
     {
         var url = route.Replace("{id}", Guid.NewGuid().ToString());
-        var wrongDirectionScope = requiredScope == "users.read" ? "users.write" : "users.read";
+        // An admin route must not open to the ordinary user scopes, and an ordinary route must not open to users.admin alone.
+        var wrongDirectionScope = requiredScope switch
+        {
+            "users.admin" => "users.read users.write",
+            "users.read" => "users.write users.admin",
+            _ => "users.read users.admin",
+        };
 
         Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(method, url, null));
         Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create("s1", "recipes.read")));

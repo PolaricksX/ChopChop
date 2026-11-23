@@ -13,6 +13,12 @@ public sealed class UserProfileRepository(UserServiceDbContext context)
         return (forUpdate ? query : query.AsNoTracking()).FirstOrDefaultAsync(token);
     }
 
+    public Task<UserProfile?> GetByIdAsync(Guid id, bool forUpdate, CancellationToken token)
+    {
+        var query = Context.Users.Where(x => x.Id == id);
+        return (forUpdate ? query : query.AsNoTracking()).FirstOrDefaultAsync(token);
+    }
+
     public Task<UserProfile?> GetBySubjectAsync(string subject, CancellationToken token) =>
         Context.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Subject == subject, token);
 
