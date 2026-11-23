@@ -1,6 +1,6 @@
 import type { AppState } from '@auth0/auth0-react'
 
-const panels = ['recipe', 'recipes', 'cookbook', 'meal-planner', 'equipment', 'review', 'moderation'] as const
+const panels = ['recipe', 'recipes', 'cookbook', 'meal-planner', 'pantry', 'equipment', 'review', 'moderation'] as const
 const recipeViews = ['browse', 'drafts', 'new', 'details', 'edit'] as const
 
 export type Panel = (typeof panels)[number]

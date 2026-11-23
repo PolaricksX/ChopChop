@@ -15,6 +15,7 @@ createRoot(document.getElementById('root')!).render(
       cacheLocation="localstorage"
       onRedirectCallback={handleAuthRedirect}
       authorizationParams={{
+        audience: import.meta.env.VITE_AUTH0_COOKBOOK_AUDIENCE,
         redirect_uri: `${window.location.origin}/`,
         scope: 'openid profile email',
       }}

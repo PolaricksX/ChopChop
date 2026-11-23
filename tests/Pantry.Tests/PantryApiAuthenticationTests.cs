@@ -41,6 +41,16 @@ public sealed class PantryApiAuthenticationTests : IClassFixture<PantryApiFactor
     }
 
     [Fact]
+    public async Task Development_auth_mode_accepts_requests_without_a_bearer_token()
+    {
+        using var development = factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("Auth:DevelopmentMode", "true"));
+        using var developmentClient = development.CreateClient();
+
+        Assert.Equal(HttpStatusCode.OK, (await developmentClient.GetAsync("/api/v1/pantry/")).StatusCode);
+    }
+
+    [Fact]
     public async Task Invalid_signature_issuer_audience_expiry_and_malformed_tokens_are_rejected()
     {
         using var otherKey = RSA.Create(2048);

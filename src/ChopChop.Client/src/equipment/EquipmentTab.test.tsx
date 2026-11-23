@@ -66,6 +66,17 @@ describe('EquipmentTab', () => {
     expect(listEquipment).toHaveBeenCalledWith('token', { page: 1, pageSize: 20 })
   })
 
+  it('reloads when an explicit access token changes', async () => {
+    const { rerender } = render(<EquipmentTab accessToken="first-token" />)
+    await screen.findByText('No equipment yet. Add your first kitchen item.')
+    vi.mocked(listEquipment).mockImplementationOnce(() => new Promise(() => {}))
+
+    rerender(<EquipmentTab accessToken="second-token" />)
+
+    expect(screen.getByText('Loading equipment…')).toBeTruthy()
+    await waitFor(() => expect(listEquipment).toHaveBeenLastCalledWith('second-token', { page: 1, pageSize: 20 }))
+  })
+
   it('validates required fields and prevents submitting an empty item', async () => {
     render(<EquipmentTab getAccessToken={getAccessToken} />)
     fireEvent.click(screen.getByRole('button', { name: 'Add equipment' }))
@@ -203,5 +214,23 @@ describe('EquipmentTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(deleteEquipment).toHaveBeenCalledWith('token', equipment))
+  })
+
+  it('requests read and write scopes separately when it owns token acquisition', async () => {
+    const getAccessToken = vi.fn().mockResolvedValue('token')
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
+
+    await screen.findByText('No equipment yet. Add your first kitchen item.')
+    fireEvent.click(screen.getByRole('button', { name: 'Add equipment' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Stock pot' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save equipment' }))
+
+    await waitFor(() => expect(createEquipment).toHaveBeenCalledWith(
+      'token',
+      expect.objectContaining({ name: 'Stock pot' }),
+      expect.any(String),
+    ))
+    expect(getAccessToken).toHaveBeenNthCalledWith(1, 'equipment.read')
+    expect(getAccessToken).toHaveBeenNthCalledWith(2, 'equipment.write')
   })
 })

@@ -7,11 +7,13 @@ describe('Auth0 API access tokens', () => {
   beforeEach(() => {
     tokenGetter.mockReset().mockResolvedValue('access-token')
     setTokenGetter(tokenGetter)
+    vi.stubEnv('VITE_DEV_AUTH', 'false')
     vi.stubEnv('VITE_AUTH0_AI_RECIPE_AUDIENCE', 'https://api.chopchop.local/ai-recipe-generation')
     vi.stubEnv('VITE_AUTH0_INTERACTIVE_REVIEW_AUDIENCE', 'https://api.chopchop.local/interactive-review')
     vi.stubEnv('VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE', 'https://api.chopchop.local/recipe-management')
     vi.stubEnv('VITE_AUTH0_COOKBOOK_AUDIENCE', 'https://api.chopchop.local/cookbook')
     vi.stubEnv('VITE_AUTH0_MEAL_PLANNER_AUDIENCE', 'https://api.chopchop.local/meal-planner')
+    vi.stubEnv('VITE_AUTH0_PANTRY_AUDIENCE', 'https://api.chopchop.local/pantry')
     vi.stubEnv('VITE_AUTH0_EQUIPMENT_AUDIENCE', 'https://api.chopchop.local/equipment')
   })
 
@@ -25,6 +27,13 @@ describe('Auth0 API access tokens', () => {
         scope: 'recipe-generations.create',
       },
     })
+  })
+
+  it('uses the local development identity without requesting an Auth0 token', async () => {
+    vi.stubEnv('VITE_DEV_AUTH', 'true')
+
+    await expect(getApiAccessToken('ai', 'recipe-generations.create')).resolves.toBe('development-mode')
+    expect(tokenGetter).not.toHaveBeenCalled()
   })
 
   it('requests moderator access only when a moderation operation needs it', async () => {
@@ -77,7 +86,25 @@ describe('Auth0 API access tokens', () => {
     })
   })
 
-  it('requests least-privilege Equipment API permissions from the shared Auth0 client', async () => {
+  it('requests Pantry read and write permissions from its own audience', async () => {
+    await getApiAccessToken('pantry', 'pantry.read')
+    await getApiAccessToken('pantry', 'pantry.write')
+
+    expect(tokenGetter).toHaveBeenNthCalledWith(1, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/pantry',
+        scope: 'pantry.read',
+      },
+    })
+    expect(tokenGetter).toHaveBeenNthCalledWith(2, {
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/pantry',
+        scope: 'pantry.write',
+      },
+    })
+  })
+
+  it('requests Equipment read and write permissions from its own audience', async () => {
     await getApiAccessToken('equipment', 'equipment.read')
     await getApiAccessToken('equipment', 'equipment.write')
 

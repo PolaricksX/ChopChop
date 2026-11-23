@@ -4,7 +4,7 @@ export type TokenOptions = {
 }
 
 type TokenGetter = (options: TokenOptions) => Promise<string | undefined>
-export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner' | 'equipment'
+export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner' | 'pantry' | 'equipment'
 export type ApiPermission =
   | 'recipe-generations.create'
   | 'recipe-generations.read'
@@ -20,10 +20,18 @@ export type ApiPermission =
   | 'cookbook.write'
   | 'mealplans.read'
   | 'mealplans.write'
+  | 'pantry.read'
+  | 'pantry.write'
   | 'equipment.read'
   | 'equipment.write'
+export type PantryPermission = Extract<ApiPermission, 'pantry.read' | 'pantry.write'>
+export type EquipmentPermission = Extract<ApiPermission, 'equipment.read' | 'equipment.write'>
 
 let tokenGetter: TokenGetter | undefined
+
+export function isDevelopmentAuthEnabled() {
+  return import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH === 'true'
+}
 
 export async function getTokenOrReauthenticate(
   options: TokenOptions,
@@ -70,6 +78,10 @@ export async function getApiAccessToken(
       audience: import.meta.env.VITE_AUTH0_MEAL_PLANNER_AUDIENCE,
       permissions: ['mealplans.read', 'mealplans.write'],
     },
+    pantry: {
+      audience: import.meta.env.VITE_AUTH0_PANTRY_AUDIENCE,
+      permissions: ['pantry.read', 'pantry.write'],
+    },
     equipment: {
       audience: import.meta.env.VITE_AUTH0_EQUIPMENT_AUDIENCE,
       permissions: ['equipment.read', 'equipment.write'],
@@ -79,6 +91,9 @@ export async function getApiAccessToken(
   if (!permissions.includes(permission)) {
     throw new Error(`Permission ${permission} is not valid for the ${api} API.`)
   }
+  if (isDevelopmentAuthEnabled()) {
+    return 'development-mode'
+  }
   if (!audience) {
     const envVariable = {
       ai: 'VITE_AUTH0_AI_RECIPE_AUDIENCE',
@@ -86,6 +101,7 @@ export async function getApiAccessToken(
       recipes: 'VITE_AUTH0_RECIPE_MANAGEMENT_AUDIENCE',
       cookbook: 'VITE_AUTH0_COOKBOOK_AUDIENCE',
       mealPlanner: 'VITE_AUTH0_MEAL_PLANNER_AUDIENCE',
+      pantry: 'VITE_AUTH0_PANTRY_AUDIENCE',
       equipment: 'VITE_AUTH0_EQUIPMENT_AUDIENCE',
     }[api]
     throw new Error(`API access is not configured. Set ${envVariable} in .env.local.`)

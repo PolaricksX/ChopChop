@@ -32,6 +32,7 @@ describe('App authentication gate', () => {
   })
 
   beforeEach(() => {
+    vi.stubEnv('VITE_DEV_AUTH', 'false')
     window.history.replaceState(null, '', '/')
     sessionStorage.clear()
     authState.loginWithRedirect.mockReset()
@@ -52,7 +53,27 @@ describe('App authentication gate', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in to continue' }))
 
-    expect(authState.loginWithRedirect).toHaveBeenCalledOnce()
+    expect(authState.loginWithRedirect).toHaveBeenCalledWith({
+      authorizationParams: { scope: 'cookbook.read' },
+    })
+  })
+
+  it('starts Auth0 Universal Signup from the create-account action', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
+
+    expect(authState.loginWithRedirect).toHaveBeenCalledWith({
+      authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup' },
+    })
+  })
+
+  it('opens the app without Auth0 when local development auth is enabled', async () => {
+    vi.stubEnv('VITE_DEV_AUTH', 'true')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Create a recipe draft' })).toBeInTheDocument()
+    expect(screen.getByText('Development mode')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in to continue' })).toBeNull()
   })
 
   it('opens meal planning within the shared authenticated client', async () => {
@@ -76,6 +97,24 @@ describe('App authentication gate', () => {
       authorizationParams: {
         audience: 'https://api.chopchop.local/meal-planner',
         scope: 'mealplans.read',
+      },
+    })
+  })
+
+  it('opens the authenticated Pantry tab with a Pantry API token', async () => {
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_PANTRY_AUDIENCE', 'https://api.chopchop.local/pantry')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([]))))
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'My Pantry' }))
+
+    expect(await screen.findByRole('heading', { name: 'My pantry' })).toBeInTheDocument()
+    expect(await screen.findByText('No pantry items match these filters.')).toBeInTheDocument()
+    expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/pantry',
+        scope: 'pantry.read',
       },
     })
   })
@@ -258,8 +297,8 @@ describe('App authentication gate', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Equipment' }))
 
-    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeTruthy()
-    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeInTheDocument()
+    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeInTheDocument()
     expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
       authorizationParams: {
         audience: 'https://api.chopchop.local/equipment',

@@ -10,6 +10,7 @@
 *.userosscache
 *.sln.docstates
 *.env
+.env.test
 src/ChopChop.Client/.env.local
 
 # User-specific files (MonoDevelop/Xamarin Studio)

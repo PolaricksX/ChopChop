@@ -1,283 +1,102 @@
-# Local Development
+# Start ChopChop Locally
 
-This guide runs the assigned AI Recipe Generation, Interactive Review, Recipe
-Management, and Cookbook services with a local SQL Server, RabbitMQ, Keycloak
-realm, and React client. The browser client now uses Auth0; the APIs still
-default to the imported Keycloak realm unless their auth settings are
-overridden as described below.
-Do not use the development settings or credentials in a shared or production
-environment.
+These steps start the complete ChopChop site with Auth0 authentication and
+sample data on Windows. An explicit local-auth mode is available for testing
+without an identity-provider account.
 
-## 1. Start the local dependencies
+## Requirements
 
-1. Copy `.env.example` to `.env` and replace every sample password with a
-   different strong local password. `.env.example` contains placeholders only;
-   the repository must not contain a usable local or production credential.
-2. Start the dependencies from the repository root:
+Install and start Docker Desktop, install Git, the .NET 10 SDK, and Node.js
+22.12 or newer (which includes npm).
 
-   ```powershell
-   docker compose up -d
-   ```
+## First-time setup
 
-   The compose file starts SQL Server on `1433`, RabbitMQ on `5672` (management
-   UI `15672`), and Keycloak on `8080`. Keycloak imports the `chopchop` realm,
-   the public `chopchop-web` client, the `chopchop-api` audience mapper, and
-   the `review-moderator` realm role.
-3. Use Keycloak's realm registration page to create a local account. To test
-   moderation, assign the `review-moderator` realm role to a local test user
-   from the Keycloak admin console.
-
-## 2. Configure local secrets
-
-Set `ASPNETCORE_ENVIRONMENT=Development` in the shell that runs .NET commands.
-Add the same SQL connection string and RabbitMQ URI as user secrets to the
-API projects below. Replace the bracketed values locally; do not commit them:
+In PowerShell, clone the repository and create its local test password file:
 
 ```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Development"
-$connection = "Server=localhost,1433;Database=ChopChop;User Id=sa;Password=<your-sql-password>;Encrypt=True;TrustServerCertificate=True"
-$rabbit = "amqp://<rabbit-user>:<rabbit-password>@localhost:5672/"
-
-dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\AiRecipeGeneration.Api
-dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\AiRecipeGeneration.Api
-dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\InteractiveReview.Api
-dotnet user-secrets set "Messaging:ConnectionString" $rabbit --project src\InteractiveReview.Api
-dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\RecipeManagement.Api
-dotnet user-secrets set "ConnectionStrings:ChopChop" $connection --project src\Cookbook.Api
+git clone https://github.com/PolaricksX/ChopChop.git
+Set-Location ChopChop
+Copy-Item .env.test.example .env.test
+notepad .env.test
 ```
 
-For AI generation, also configure the Azure OpenAI v1 endpoint, deployment
-name, and API key only in the AI API's user secrets:
+In Notepad, replace the `TEST_DB_PASSWORD` placeholder with a strong local-only
+password, save the file, and close Notepad. Do not commit `.env.test`. Password must meet SQL Server complexity requirements.
+Docker Compose resolves quoting and dollar-sign escapes in this file. Keep the
+password unchanged after the database and broker are initialized: their
+credentials are stored in the persistent volumes.
+
+Install the browser client dependencies:
 
 ```powershell
-dotnet user-secrets set "AzureOpenAI:Endpoint" "https://<resource>.openai.azure.com" --project src\AiRecipeGeneration.Api
-dotnet user-secrets set "AzureOpenAI:Deployment" "<deployment-name>" --project src\AiRecipeGeneration.Api
-dotnet user-secrets set "AzureOpenAI:ApiKey" "<secret>" --project src\AiRecipeGeneration.Api
+Set-Location src\ChopChop.Client
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
+npm ci
+Set-Location ..\..
 ```
 
-The adapter appends `/openai/v1/chat/completions` to the endpoint. Never place
-an API key, SQL password, broker password, or OAuth client secret in source
-control, `.env.example`, browser configuration, or test data.
+For the default Auth0 mode, set `CHOPCHOP_AUTH0_DOMAIN` to the tenant hostname
+shown in the client `.env.local` file (without `https://`). The client
+`.env.local` must contain the Auth0 client settings and API audiences configured
+for this project. The launcher passes the tenant authority and each API's
+audience to its service process; it does not read or modify `.env.local`.
+The `.env.example` values are public SPA configuration, not client secrets.
 
-Milestone 4 CI and repository-administration requirements, including the
-required Actions secret and the secret-store boundary, are documented in
-[milestone-4-security-operations.md](milestone-4-security-operations.md).
-
-## 3. Apply each service's migrations
-
-Each service owns its schema and migration history in the shared `ChopChop`
-database. Run each migration from the repository root:
+In PowerShell, set the launcher domain before starting:
 
 ```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Development"
-dotnet ef database update --project src\AiRecipeGeneration.Data --startup-project src\AiRecipeGeneration.Api --context AiRecipeDbContext
-dotnet ef database update --project src\InteractiveReview.Data --startup-project src\InteractiveReview.Api --context InteractiveReviewDbContext
+$env:CHOPCHOP_AUTH0_DOMAIN = "dev-z0oytbo8xgsxujpl.ca.auth0.com"
 ```
 
-The AI service uses schema `ai_recipe`; the review service uses
-`interactive_review`. Do not modify the other service's tables.
+## Start the site
 
-### Recipe Management
-
-Recipe Management owns the `recipe_management` schema in the shared
-`ChopChop` database. Configure `ConnectionStrings:ChopChop` through local user
-secrets for `src\RecipeManagement.Api`; do not commit the connection string or
-any credentials. Apply its migration from the repository root:
+From the repository root, run:
 
 ```powershell
-dotnet ef database update --project src\RecipeManagement.Data --startup-project src\RecipeManagement.Api --context RecipeManagementDbContext
+dotnet run --project tools\ChopChop.LocalLauncher
 ```
 
-### Cookbook
+Wait for startup to finish, then open <http://127.0.0.1:5174>. The launcher
+starts the local database and message broker, applies migrations and sample
+data, builds the APIs, and starts the browser client. Auth0 is enabled by
+default; the identity provider must allow `http://127.0.0.1:5174/` as a
+callback and logout URL and `http://127.0.0.1:5174` as a web origin.
+Development authentication is disabled in this mode. The isolated SQL Server
+uses `127.0.0.1,1435` on the host.
 
-Cookbook owns the `cookbook` schema in the shared `ChopChop` database. Configure
-`ConnectionStrings:ChopChop` through local user secrets for `src\Cookbook.Api`;
-do not commit the connection string or any credentials. Apply its migration
-from the repository root using the design-time override:
+To run the same stack without signing in to Auth0, opt in to the local
+development identity:
 
 ```powershell
-$env:ConnectionStrings__Cookbook = $connection
-dotnet ef database update --project src\Cookbook.Data --startup-project src\Cookbook.Api --context CookbookDbContext
+dotnet run --project tools\ChopChop.LocalLauncher -- --local-auth
 ```
 
-Cookbook local development quick reference:
+The local-auth mode enables the fixed development identity only on the local
+development stack and does not use Auth0 credentials.
 
-- API URL: `http://localhost:20860`.
-- User secret key: `ConnectionStrings:ChopChop` on `src\Cookbook.Api`.
-- Migration override: set `ConnectionStrings__Cookbook` before running `dotnet ef database update` for `CookbookDbContext`.
-- Client API URL setting: `VITE_COOKBOOK_API_URL=http://localhost:20860` in `src\ChopChop.Client\.env.local`.
+Press Ctrl+C in the launcher terminal to stop the site. The local database and
+broker data are preserved. For later starts, run the launcher command again
+from the repository root; repeat `npm ci` only if the client dependencies need
+to be installed or updated.
 
-### User Service
+## Profile pictures
 
-User Service stores uploaded profile pictures on the local filesystem. Set the
-storage folder through user secrets. The path must be absolute and outside the
-repository and any web root. `appsettings.Development.json` contains only a
-`<your-user>` placeholder, which is not a valid Windows path, so uploads fail
-until this secret is set:
+The launcher does not configure profile picture storage. Before uploading a
+profile picture, set the storage folder once with .NET user secrets:
 
 ```powershell
 dotnet user-secrets set "ProfilePictures:RootPath" "$env:LOCALAPPDATA\ChopChop\UserService\ProfilePictures" --project src\UserService.Api
 ```
 
-Apply the User Service migrations (including `AddUserProfilePicture`) from the
-repository root:
+## AI provider and security operations
 
-```powershell
-dotnet ef database update --project src\UserService.Data --startup-project src\UserService.Api --context UserServiceDbContext
-```
+For AI generation, configure `AzureOpenAI:Endpoint`, `AzureOpenAI:Deployment`,
+and `AzureOpenAI:ApiKey` using .NET user secrets on `src\AiRecipeGeneration.Api`.
+The adapter appends `/openai/v1/chat/completions` to the endpoint. Never commit
+the API key, database or broker passwords, or OAuth secrets.
 
-User Service local development quick reference:
+See [milestone 4 security operations](./milestone-4-security-operations.md)
+for CI and repository administration requirements.
 
-- User secret key: `ProfilePictures:RootPath` on `src\UserService.Api`.
-- Profile picture upload: `PUT /api/v1/users/{id}/profile-picture` (multipart/form-data, JPEG or PNG, max 1 MB).
-- Never commit the storage folder or its contents.
-
-## 4. Start APIs and client
-
-Open separate PowerShell terminals from the repository root:
-
-```powershell
-dotnet run --project src\AiRecipeGeneration.Api --launch-profile AiRecipeGeneration.Api
-```
-
-```powershell
-dotnet run --project src\InteractiveReview.Api --launch-profile InteractiveReview.Api
-```
-
-```powershell
-dotnet run --project src\RecipeManagement.Api --launch-profile RecipeManagement.Api
-```
-
-```powershell
-dotnet run --project src\Cookbook.Api --launch-profile Cookbook.Api
-```
-
-In another terminal:
-
-```powershell
-Copy-Item src\ChopChop.Client\.env.example src\ChopChop.Client\.env.local
-Set-Location src\ChopChop.Client
-npm ci
-npm run dev
-```
-
-The browser client defaults to API ports `5081`, `5082`, `20858`, `20860`, and
-`5033`, plus the configured Auth0 public client settings. `.env.local` may
-override those public values; it must never contain a client secret.
-
-Available endpoints:
-
-- AI Recipe API: `http://localhost:5081`; OpenAPI document at
-  `/openapi/v1.json`; health at `/health`.
-- Interactive Review API: `http://localhost:5082`; OpenAPI document at
-  `/openapi/v1.json`; health at `/health`.
-- Recipe Management API: `http://localhost:20858` (HTTPS:
-  `https://localhost:20857`); OpenAPI document at `/openapi/v1.json`; health at
-  `/health`.
-- Cookbook API: `http://localhost:20860`; OpenAPI document at
-  `/openapi/v1.json`; health at `/health`.
-- User Equipment API: `http://localhost:5018`; OpenAPI document at
-  `/openapi/v1.json`; health at `/health`.
-- Keycloak: `http://localhost:8080/realms/chopchop`.
-
-The client uses `VITE_RECIPE_MANAGEMENT_API_URL` for the Recipe Management API
-base URL. Set `VITE_RECIPE_MANAGEMENT_API_URL=http://localhost:20858` (or the
-HTTPS URL above) in `src\ChopChop.Client\.env.local`; this is a public URL and
-must not contain a client secret.
-
-The client uses `VITE_COOKBOOK_API_URL` for the Cookbook API base URL. Set
-`VITE_COOKBOOK_API_URL=http://localhost:20860` in
-`src\ChopChop.Client\.env.local`; this is a public URL and must not contain a
-client secret.
-
-The Meal Plans tab uses `VITE_MEAL_PLANNER_API_URL` for its API base URL. It
-defaults to `http://localhost:5033`; override it in
-`src\ChopChop.Client\.env.local` when the Meal Planner API runs elsewhere.
-
-When using local Keycloak, the APIs validate signed bearer tokens against the
-issuer and audience from their development settings. Local HTTP and local-only
-secrets are development conveniences; production must use HTTPS and an
-appropriately secured secret store.
-
-### Using Auth0 with the browser client and APIs
-
-The client Auth0 application must allow `http://localhost:5173/` as its
-callback and logout URL and `http://localhost:5173` as its web origin. Its Vite
-dev server is pinned to port `5173`.
-
-Do **not** configure the Auth0 Management API (`https://<tenant>/api/v2/`) as
-the ChopChop API or grant its management permissions to the SPA. Create a
-separate Auth0 API (resource server) for each backend. Use these stable API
-identifiers, or replace them consistently in the client env and API user
-secrets:
-
-| API | Identifier/audience | Delegated API permissions |
-|---|---|---|
-| AI Recipe Generation | `https://api.chopchop.local/ai-recipe-generation` | `recipe-generations.create`, `recipe-generations.read`, `recipe-generations.confirm` |
-| Interactive Review | `https://api.chopchop.local/interactive-review` | `reviews.create`, `reviews.read`, `reviews.write`, `reviews.moderate` |
-| Recipe Management | `https://api.chopchop.local/recipe-management` | `recipes.read`, `recipes.write`, `recipes.publish` |
-| Cookbook | `https://api.chopchop.local/cookbook` | `cookbook.read`, `cookbook.write` |
-| User Service | `https://api.chopchop.local/user-service` | `users.read`, `users.write` |
-| Meal Planner | `https://api.chopchop.local/meal-planner` | `mealplans.read`, `mealplans.write` |
-
-For each API, set its signing algorithm to RS256, enable RBAC, and enable
-permissions in the access token. Assign only the needed permissions to user
-roles: `reviews.moderate` should be granted only to moderators. The browser
-client requests user-delegated access; do not enable a client secret or use
-client-credentials access from the browser. Public endpoints need no scope.
-The client uses scopes from its API-specific list and each API also recognizes
-Auth0's `permissions` array claim.
-
-Set the client audiences in `src\ChopChop.Client\.env.local` using the
-identifiers above. The SPA gets a distinct audience and scope set for each
-backend. Configure each API with the tenant issuer and its own expected
-audience through local user secrets:
-
-```powershell
-$issuer = "https://<your-auth0-domain>/"
-$apiAudiences = @{
-  "src\AiRecipeGeneration.Api" = "https://api.chopchop.local/ai-recipe-generation"
-  "src\InteractiveReview.Api" = "https://api.chopchop.local/interactive-review"
-  "src\RecipeManagement.Api" = "https://api.chopchop.local/recipe-management"
-  "src\Cookbook.Api" = "https://api.chopchop.local/cookbook"
-  "src\UserService.Api" = "https://api.chopchop.local/user-service"
-  "src\MealPlanner.Api" = "https://api.chopchop.local/meal-planner"
-}
-
-foreach ($project in $apiAudiences.Keys) {
-  dotnet user-secrets set "Auth:Authority" $issuer --project $project
-  dotnet user-secrets set "Auth:Audience" $apiAudiences[$project] --project $project
-}
-```
-
-The APIs validate tokens with their framework JWT bearer handlers, including
-signature, issuer, audience, expiry, signing-key rotation, and the configured
-algorithm allowlist. Auth0's API permissions are checked from the validated
-`scope`, `scp`, or `permissions` claims; the Management API permissions shown
-on the Auth0 Management API page are not relevant to these resource servers.
-API user secrets are local configuration and must not be committed.
-
-Existing data owned by a GUID-valued subject remains associated with that
-GUID. An opaque Auth0 subject gets a deterministic internal GUID derived from
-issuer and subject; this does not automatically link accounts across identity
-providers.
-
-## 5. Validate changes
-
-```powershell
-dotnet restore Solution.sln
-dotnet build Solution.sln -c Release --no-restore
-dotnet test Solution.sln -c Release --no-build
-dotnet format Solution.sln --verify-no-changes
-dotnet list Solution.sln package --vulnerable --include-transitive
-
-Set-Location src\ChopChop.Client
-npm ci
-npm run build
-npm test
-npm run lint
-```
-
-API integration tests validate JWT behavior using a framework bearer handler
-and test signing key. Database-backed integration tests require the local
-SQL Server and RabbitMQ services.
+For running services individually with the separate manual Compose stack, see
+[manual local development](./manual-local-development.md).
