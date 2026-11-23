@@ -7,6 +7,12 @@ export interface UserProfile {
   email: string
 }
 
+export interface CreateUserProfileInput {
+  username: string
+  email: string
+  displayName?: string
+}
+
 export class ProfileApiError extends Error {
   readonly status: number
 
@@ -69,4 +75,19 @@ export async function uploadProfilePicture(id: string, file: File): Promise<void
   if (!response.ok) {
     throw new ProfileApiError(await readError(response), response.status)
   }
+}
+
+export async function createProfile(input: CreateUserProfileInput): Promise<UserProfile> {
+  const response = await send('/api/v1/users', 'users.write', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': crypto.randomUUID(),
+    },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) {
+    throw new ProfileApiError(await readError(response), response.status)
+  }
+  return response.json() as Promise<UserProfile>
 }

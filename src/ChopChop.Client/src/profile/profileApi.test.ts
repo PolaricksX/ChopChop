@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getApiAccessToken } from '../auth'
 import {
+  createProfile,
   getMyProfile,
   getProfilePicture,
   uploadProfilePicture,
@@ -70,5 +71,29 @@ describe('profileApi', () => {
 
     await expect(uploadProfilePicture('a2d7e159-b7f6-493e-a070-9f7f75f8c74e', new File(['x'], 'x.gif', { type: 'image/gif' })))
       .rejects.toMatchObject({ status: 415, message: 'Only JPEG and PNG are allowed.' })
+  })
+
+  it('creates a profile with users.write and sends an Idempotency-Key header', async () => {
+      const randomUuid = vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('00000000-0000-0000-0000-000000000001')
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      id: 'a2d7e159-b7f6-493e-a070-9f7f75f8c74e',
+      displayName: 'Taylor Cook',
+      username: 'tcook',
+      email: 'taylor@example.com',
+    }), { status: 201 }))
+
+    await createProfile({
+      username: 'tcook',
+      email: 'taylor@example.com',
+      displayName: 'Taylor Cook',
+    })
+
+    expect(getApiAccessToken).toHaveBeenCalledWith('user', 'users.write')
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit]
+    expect(new URL(url).pathname).toBe('/api/v1/users')
+    expect(init.method).toBe('POST')
+    const headers = new Headers(init.headers)
+      expect(headers.get('Idempotency-Key')).toBe('00000000-0000-0000-0000-000000000001')
+    randomUuid.mockRestore()
   })
 })

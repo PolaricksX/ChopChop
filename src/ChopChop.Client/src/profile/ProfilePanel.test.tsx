@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuth0 } from '@auth0/auth0-react'
 import { getApiAccessToken } from '../auth'
@@ -16,8 +16,19 @@ describe('ProfilePanel', () => {
   const createObjectUrl = vi.fn()
   const revokeObjectUrl = vi.fn()
 
+    type TestUser = { email: string; nickname: string; name: string }
+
+    const auth0State: { isAuthenticated: boolean; user: TestUser | undefined } = {
+        isAuthenticated: true,
+        user: {
+            email: 'taylor@example.com',
+            nickname: 'tcook',
+            name: 'Taylor Cook',
+        },
+    }
+
   beforeEach(() => {
-    vi.mocked(useAuth0).mockReturnValue({ isAuthenticated: true } as never)
+    vi.mocked(useAuth0).mockImplementation(() => auth0State as never)
     vi.mocked(getApiAccessToken).mockReset().mockResolvedValue('top-secret-token')
     createObjectUrl.mockReset().mockReturnValue('blob:picture-url')
     revokeObjectUrl.mockReset()
@@ -32,6 +43,13 @@ describe('ProfilePanel', () => {
       writable: true,
       value: revokeObjectUrl,
     })
+
+    auth0State.isAuthenticated = true
+    auth0State.user = {
+      email: 'taylor@example.com',
+      nickname: 'tcook',
+      name: 'Taylor Cook',
+    }
   })
 
   it('loads and displays profile name, username, and email', async () => {
@@ -60,6 +78,8 @@ describe('ProfilePanel', () => {
     render(<ProfilePanel />)
 
     expect(await screen.findByText('No profile yet')).toBeInTheDocument()
+    expect(screen.getByLabelText('Username')).toHaveValue('tcook')
+    expect(screen.getByLabelText('Email')).toHaveValue('taylor@example.com')
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
     const [url] = vi.mocked(fetch).mock.calls[0] as [URL, RequestInit]
     expect(new URL(url).pathname).toBe('/api/v1/users/me')
@@ -159,6 +179,124 @@ describe('ProfilePanel', () => {
     unmount()
 
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:current-picture')
+  })
+
+  it('sign-out cleanup revokes picture URL and clears loaded profile from the panel', async () => {
+    createObjectUrl.mockReturnValue('blob:current-picture')
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: '8d54a67a-f876-4215-a801-5c66426d0786',
+        displayName: 'Taylor Cook',
+        username: 'tcook',
+        email: 'taylor@example.com',
+      })))
+      .mockResolvedValueOnce(new Response(new Blob(['pic'], { type: 'image/png' }), { status: 200 }))
+
+    let cleanup: (() => void) | null = null
+    render(<ProfilePanel registerSignOutCleanup={(handler) => { cleanup = handler }} />)
+
+    await screen.findByText('Taylor Cook')
+    expect(screen.getByRole('img', { name: 'Profile picture' })).toHaveAttribute('src', 'blob:current-picture')
+
+    act(() => cleanup?.())
+
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:current-picture')
+    await waitFor(() => expect(screen.queryByText('Taylor Cook')).toBeNull())
+    expect(screen.queryByText('taylor@example.com')).toBeNull()
+    expect(screen.queryByRole('img', { name: 'Profile picture' })).toBeNull()
+    expect(screen.getByText('No profile yet')).toBeInTheDocument()
+  })
+
+  it('after sign-out and sign-in as another user, previous profile details are not shown', async () => {
+    createObjectUrl
+      .mockReturnValueOnce('blob:first-user')
+      .mockReturnValueOnce('blob:second-user')
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: '8d54a67a-f876-4215-a801-5c66426d0786',
+        displayName: 'Taylor Cook',
+        username: 'tcook',
+        email: 'taylor@example.com',
+      })))
+      .mockResolvedValueOnce(new Response(new Blob(['first'], { type: 'image/png' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: 'f6a6e9cf-d8c2-4b12-b2aa-4f82f80b88dc',
+        displayName: 'Casey Chef',
+        username: 'cchef',
+        email: 'casey@example.com',
+      })))
+      .mockResolvedValueOnce(new Response(new Blob(['second'], { type: 'image/png' }), { status: 200 }))
+
+    let cleanup: (() => void) | null = null
+    const rendered = render(<ProfilePanel registerSignOutCleanup={(handler) => { cleanup = handler }} />)
+
+    expect(await screen.findByText('Taylor Cook')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Profile picture' })).toHaveAttribute('src', 'blob:first-user')
+
+    act(() => cleanup?.())
+    auth0State.isAuthenticated = false
+    auth0State.user = undefined
+    rendered.rerender(<ProfilePanel registerSignOutCleanup={(handler) => { cleanup = handler }} />)
+
+    auth0State.isAuthenticated = true
+    auth0State.user = {
+      email: 'casey@example.com',
+      nickname: 'cchef',
+      name: 'Casey Chef',
+    }
+    rendered.rerender(<ProfilePanel registerSignOutCleanup={(handler) => { cleanup = handler }} />)
+
+    expect(await screen.findByText('Casey Chef')).toBeInTheDocument()
+    expect(screen.getByText('casey@example.com')).toBeInTheDocument()
+    expect(screen.queryByText('Taylor Cook')).toBeNull()
+    expect(screen.queryByText('taylor@example.com')).toBeNull()
+    expect(screen.getByRole('img', { name: 'Profile picture' })).toHaveAttribute('src', 'blob:second-user')
+  })
+
+  it('creates a profile from the no-profile form and then displays the loaded profile', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: '8d54a67a-f876-4215-a801-5c66426d0786',
+        displayName: 'Taylor Cook',
+        username: 'tcook',
+        email: 'taylor@example.com',
+      }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: '8d54a67a-f876-4215-a801-5c66426d0786',
+        displayName: 'Taylor Cook',
+        username: 'tcook',
+        email: 'taylor@example.com',
+      })))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+
+    render(<ProfilePanel />)
+
+    expect(await screen.findByText('No profile yet')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Create profile' }))
+
+    expect(await screen.findByText('Display name:')).toBeInTheDocument()
+    expect(screen.getByText('Taylor Cook')).toBeInTheDocument()
+
+    const [createUrl, createInit] = vi.mocked(fetch).mock.calls[1] as [URL, RequestInit]
+    expect(new URL(createUrl).pathname).toBe('/api/v1/users')
+    expect(createInit.method).toBe('POST')
+  })
+
+  it('shows problem detail when profile creation returns conflict', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response(
+        JSON.stringify({ detail: 'A profile with that username already exists.' }),
+        { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+      ))
+
+    render(<ProfilePanel />)
+
+    expect(await screen.findByText('No profile yet')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Create profile' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('A profile with that username already exists.')
   })
 
   it('never places the access token in any request URL', async () => {

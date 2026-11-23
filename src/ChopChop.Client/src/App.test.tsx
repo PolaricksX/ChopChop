@@ -8,6 +8,7 @@ const authState = vi.hoisted(() => ({
   loginWithRedirect: vi.fn(),
   getAccessTokenSilently: vi.fn(),
   getAccessTokenWithPopup: vi.fn(),
+  logout: vi.fn(),
   isAuthenticated: false,
   isLoading: false,
 }))
@@ -20,7 +21,7 @@ vi.mock('@auth0/auth0-react', () => ({
     isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
     loginWithRedirect: authState.loginWithRedirect,
-    logout: vi.fn(),
+    logout: authState.logout,
     user: undefined,
   }),
 }))
@@ -38,8 +39,66 @@ describe('App authentication gate', () => {
     authState.loginWithRedirect.mockReset()
     authState.getAccessTokenSilently.mockReset().mockResolvedValue('access-token')
     authState.getAccessTokenWithPopup.mockReset().mockResolvedValue('popup-token')
+    authState.logout.mockReset().mockResolvedValue(undefined)
     authState.isAuthenticated = false
     authState.isLoading = false
+  })
+
+  it('calls Auth0 logout with the existing returnTo parameter', async () => {
+    authState.isAuthenticated = true
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    await waitFor(() => expect(authState.logout).toHaveBeenCalledWith({
+      logoutParams: { returnTo: `${window.location.origin}/` },
+    }))
+  })
+
+  it('cleans up the loaded profile before calling Auth0 logout', async () => {
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_USER_SERVICE_AUDIENCE', 'https://api.chopchop.local/user-service')
+    const order: string[] = []
+    const revokeObjectUrl = vi.fn(() => {
+      order.push('cleanup')
+    })
+    const createObjectUrl = vi.fn().mockReturnValue('blob:profile-picture')
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: createObjectUrl,
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: revokeObjectUrl,
+    })
+    authState.logout.mockImplementationOnce(async () => {
+      order.push('logout')
+      expect(revokeObjectUrl).toHaveBeenCalledWith('blob:profile-picture')
+    })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: '8d54a67a-f876-4215-a801-5c66426d0786',
+        displayName: 'Taylor Cook',
+        username: 'tcook',
+        email: 'taylor@example.com',
+      })))
+      .mockResolvedValueOnce(new Response(new Blob(['pic'], { type: 'image/png' }), { status: 200 })))
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Profile' }))
+    expect(await screen.findByText('Taylor Cook')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Profile picture' })).toHaveAttribute('src', 'blob:profile-picture')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    await waitFor(() => expect(authState.logout).toHaveBeenCalledTimes(1))
+    expect(order).toEqual(['cleanup', 'logout'])
+    expect(screen.queryByText('Taylor Cook')).toBeNull()
+    expect(screen.queryByText('taylor@example.com')).toBeNull()
+    expect(screen.queryByRole('img', { name: 'Profile picture' })).toBeNull()
   })
 
   it('keeps recipe and review tools behind OIDC sign-in', async () => {

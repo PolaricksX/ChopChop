@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import {
@@ -100,7 +100,12 @@ function AppContent() {
   const [busy, setBusy] = useState(false)
   const [authorizationRequests, setAuthorizationRequests] = useState<TokenOptions['authorizationParams'][]>([])
   const [authorizationBusy, setAuthorizationBusy] = useState(false)
+  const profileSignOutCleanupRef = useRef<(() => void) | null>(null)
   const authorizationRequest = authorizationRequests[0]
+
+  const registerProfileSignOutCleanup = useCallback((cleanup: (() => void) | null) => {
+    profileSignOutCleanupRef.current = cleanup
+  }, [])
 
   const tokenGetter = useCallback((options: TokenOptions) =>
     getTokenOrReauthenticate(options, getAccessTokenSilently, async (authorizationParams) => {
@@ -189,7 +194,9 @@ function AppContent() {
   }
 
   const signOut = async () => {
+    setError('')
     try {
+      profileSignOutCleanupRef.current?.()
       await logout({ logoutParams: { returnTo: `${window.location.origin}/` } })
     } catch (logoutError) {
       setError(errorMessage(logoutError))
@@ -386,7 +393,7 @@ function AppContent() {
           <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
         </Suspense>
       )}
-      {activePanel === 'profile' && <ProfilePanel />}
+      {activePanel === 'profile' && <ProfilePanel registerSignOutCleanup={registerProfileSignOutCleanup} />}
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">
           <div className="panel-heading">
