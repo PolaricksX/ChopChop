@@ -14,7 +14,10 @@ exports.onExecutePostLogin = async (event) => {
 
   const requestedRole = event.request.query?.requested_role;
   const secretName = SELF_SELECTABLE_ROLES.get(requestedRole);
-  if (!secretName) return;
+  if (!secretName) {
+    console.log('Sign-up role not assigned: requested_role not allowlisted', { requestedRole: requestedRole ?? null });
+    return;
+  }
 
   const management = new ManagementClient({
     domain: event.secrets.domain,
@@ -25,7 +28,8 @@ exports.onExecutePostLogin = async (event) => {
   // A failed assignment leaves the user with the default User role.
   try {
     await management.users.roles.assign(event.user.user_id, { roles: [event.secrets[secretName]] });
+    console.log('Sign-up role assigned', { requestedRole, userId: event.user.user_id });
   } catch (error) {
-    console.error('Sign-up role assignment failed', error.message);
+    console.error('Sign-up role assignment failed', { requestedRole, userId: event.user.user_id, message: error.message });
   }
 };
