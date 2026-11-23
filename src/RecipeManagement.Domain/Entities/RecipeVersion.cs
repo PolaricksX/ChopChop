@@ -46,6 +46,7 @@ public sealed class RecipeVersion
         this.dietaryLabels.AddRange(Normalize(dietaryLabels));
         Nutrition = nutrition;
         this.equipmentRequirements.AddRange(equipmentRequirements ?? []);
+        AssignChildPositions();
         PrepMinutes = prepMinutes;
         CookMinutes = cookMinutes;
         TotalMinutes = totalMinutes;
@@ -110,6 +111,7 @@ public sealed class RecipeVersion
         Nutrition = replacement.Nutrition;
         equipmentRequirements.Clear();
         equipmentRequirements.AddRange(replacement.equipmentRequirements);
+        AssignChildPositions();
         PrepMinutes = replacement.PrepMinutes;
         CookMinutes = replacement.CookMinutes;
         TotalMinutes = replacement.TotalMinutes;
@@ -119,4 +121,17 @@ public sealed class RecipeVersion
 
     private static IEnumerable<string> Normalize(IEnumerable<string>? values) =>
         (values ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase);
+
+    private void AssignChildPositions()
+    {
+        for (var index = 0; index < ingredients.Count; index++)
+        {
+            ingredients[index].AssignPosition(index);
+        }
+
+        for (var index = 0; index < equipmentRequirements.Count; index++)
+        {
+            equipmentRequirements[index].AssignPosition(index);
+        }
+    }
 }

@@ -24,6 +24,10 @@ public sealed class UserProfile
 
     public string? DisplayName { get; private set; }
 
+    public string? ProfilePictureKey { get; private set; }
+
+    public string? ProfilePictureContentType { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -59,6 +63,35 @@ public sealed class UserProfile
         }
 
         Apply(username, email, displayName, now);
+    }
+
+    public void SetOrReplaceProfilePicture(string profilePictureKey, string profilePictureContentType, DateTimeOffset now)
+    {
+        if (IsDeleted)
+        {
+            throw new UserNotFoundException();
+        }
+
+        var errors = new Dictionary<string, string[]>();
+
+        if (string.IsNullOrWhiteSpace(profilePictureKey))
+        {
+            errors["profilePictureKey"] = ["Profile picture key is required."];
+        }
+
+        if (!ProfilePictureRules.TryNormalizeAllowedContentType(profilePictureContentType, out var normalizedContentType))
+        {
+            errors["profilePictureContentType"] = ["Profile picture content type must be image/jpeg or image/png."];
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new DomainValidationException(errors);
+        }
+
+        ProfilePictureKey = profilePictureKey.Trim();
+        ProfilePictureContentType = normalizedContentType;
+        UpdatedAt = now;
     }
 
     /// <summary>Soft delete. Calling it again keeps the original deletion time.</summary>

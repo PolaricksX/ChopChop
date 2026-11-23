@@ -69,11 +69,61 @@ public class UserProfileTests
     }
 
     [Fact]
+    public void SetOrReplaceProfilePicture_sets_reference_and_updates_timestamp()
+    {
+        var profile = UserProfile.Create("sub-1", "alice", "a@example.com", null, Now);
+        var whenSet = Now.AddMinutes(1);
+
+        profile.SetOrReplaceProfilePicture(" pics/user-1.jpg ", " IMAGE/JPEG ", whenSet);
+
+        Assert.Equal("pics/user-1.jpg", profile.ProfilePictureKey);
+        Assert.Equal("image/jpeg", profile.ProfilePictureContentType);
+        Assert.Equal(whenSet, profile.UpdatedAt);
+    }
+
+    [Fact]
+    public void SetOrReplaceProfilePicture_replaces_existing_reference()
+    {
+        var profile = UserProfile.Create("sub-1", "alice", "a@example.com", null, Now);
+
+        profile.SetOrReplaceProfilePicture("pics/old.png", "image/png", Now.AddMinutes(1));
+        profile.SetOrReplaceProfilePicture("pics/new.jpg", "image/jpeg", Now.AddMinutes(2));
+
+        Assert.Equal("pics/new.jpg", profile.ProfilePictureKey);
+        Assert.Equal("image/jpeg", profile.ProfilePictureContentType);
+        Assert.Equal(Now.AddMinutes(2), profile.UpdatedAt);
+    }
+
+    [Fact]
+    public void SetOrReplaceProfilePicture_with_invalid_input_throws_with_field_errors()
+    {
+        var profile = UserProfile.Create("sub-1", "alice", "a@example.com", null, Now);
+
+        var ex = Assert.Throws<DomainValidationException>(() =>
+            profile.SetOrReplaceProfilePicture(" ", "image/gif", Now.AddMinutes(1)));
+
+        Assert.Contains("profilePictureKey", ex.Errors.Keys);
+        Assert.Contains("profilePictureContentType", ex.Errors.Keys);
+        Assert.Null(profile.ProfilePictureKey);
+        Assert.Null(profile.ProfilePictureContentType);
+    }
+
+    [Fact]
     public void Deleted_profile_cannot_be_updated()
     {
         var profile = UserProfile.Create("sub-1", "alice", "a@example.com", null, Now);
         profile.Delete(Now);
 
         Assert.Throws<UserNotFoundException>(() => profile.Update("alice", "a@example.com", null, Now));
+    }
+
+    [Fact]
+    public void Deleted_profile_cannot_set_or_replace_profile_picture()
+    {
+        var profile = UserProfile.Create("sub-1", "alice", "a@example.com", null, Now);
+        profile.Delete(Now);
+
+        Assert.Throws<UserNotFoundException>(() =>
+            profile.SetOrReplaceProfilePicture("pics/user.jpg", "image/jpeg", Now.AddMinutes(1)));
     }
 }

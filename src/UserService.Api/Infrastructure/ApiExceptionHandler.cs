@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using UserService.Api.Services;
 using UserService.Domain.Exceptions;
 
 namespace UserService.Api.Infrastructure;
@@ -24,6 +25,9 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
                 Status = StatusCodes.Status400BadRequest,
                 Title = "One or more validation errors occurred.",
             },
+            ProfilePictureBadRequestException => Create(StatusCodes.Status400BadRequest, "Bad request", exception.Message),
+            ProfilePicturePayloadTooLargeException => Create(StatusCodes.Status413PayloadTooLarge, "Payload too large", exception.Message),
+            ProfilePictureUnsupportedMediaTypeException => Create(StatusCodes.Status415UnsupportedMediaType, "Unsupported media type", exception.Message),
             UserNotFoundException => Create(StatusCodes.Status404NotFound, "Not found", exception.Message),
             DuplicateUserException => Create(StatusCodes.Status409Conflict, "Conflict", exception.Message),
             ConflictException => Create(StatusCodes.Status409Conflict, "Conflict", exception.Message),

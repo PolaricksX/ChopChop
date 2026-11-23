@@ -17,4 +17,11 @@ public sealed class Ingredient
     public string Name { get; private set; }
     public decimal Quantity { get; private set; }
     public string Unit { get; private set; }
+    public int Position { get; private set; }
+
+    internal void AssignPosition(int position)
+    {
+        if (position < 0) throw new ArgumentOutOfRangeException(nameof(position));
+        Position = position;
+    }
 }

@@ -10,7 +10,10 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "no-referrer";
-            headers["Cache-Control"] = "no-store";
+            if (!headers.ContainsKey("Cache-Control"))
+            {
+                headers["Cache-Control"] = "no-store";
+            }
 
             // Swagger UI (development only) needs inline scripts and styles.
             if (!context.Request.Path.StartsWithSegments("/swagger"))

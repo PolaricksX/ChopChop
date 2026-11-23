@@ -31,31 +31,35 @@ builder.Services.AddCors(options => options.AddPolicy("pantry-client", policy =>
     policy.WithOrigins(builder.Configuration["Client:Url"] ?? "http://localhost:5173")
         .AllowAnyHeader().AllowAnyMethod()));
 
-var authority = builder.Configuration["Auth:Authority"];
-var audience = builder.Configuration["Auth:Audience"];
-if (!Uri.TryCreate(authority, UriKind.Absolute, out var authorityUri)
-    || (authorityUri.Scheme != Uri.UriSchemeHttps
-        && !(builder.Environment.IsDevelopment() && authorityUri.Scheme == Uri.UriSchemeHttp))
-    || string.IsNullOrWhiteSpace(audience))
+if (!ChopChop.Shared.DevelopmentAuthentication.AddIfEnabled(
+        builder.Services, builder.Configuration, builder.Environment))
 {
-    throw new InvalidOperationException("A valid Auth:Authority and Auth:Audience must be configured. HTTPS is required outside Development.");
-}
+    var authority = builder.Configuration["Auth:Authority"];
+    var audience = builder.Configuration["Auth:Audience"];
+    if (!Uri.TryCreate(authority, UriKind.Absolute, out var authorityUri)
+        || (authorityUri.Scheme != Uri.UriSchemeHttps
+            && !(builder.Environment.IsDevelopment() && authorityUri.Scheme == Uri.UriSchemeHttp))
+        || string.IsNullOrWhiteSpace(audience))
+    {
+        throw new InvalidOperationException("A valid Auth:Authority and Auth:Audience must be configured. HTTPS is required outside Development.");
+    }
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
-{
-    options.Authority = authority;
-    options.Audience = audience;
-    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-    options.MapInboundClaims = false;
-    options.IncludeErrorDetails = false;
-    options.TokenValidationParameters.ValidateIssuer = true;
-    options.TokenValidationParameters.ValidateAudience = true;
-    options.TokenValidationParameters.ValidateLifetime = true;
-    options.TokenValidationParameters.RequireExpirationTime = true;
-    options.TokenValidationParameters.RequireSignedTokens = true;
-    options.TokenValidationParameters.ValidateIssuerSigningKey = true;
-    options.TokenValidationParameters.ValidAlgorithms = [SecurityAlgorithms.RsaSha256, SecurityAlgorithms.EcdsaSha256];
-});
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+    {
+        options.Authority = authority;
+        options.Audience = audience;
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        options.MapInboundClaims = false;
+        options.IncludeErrorDetails = false;
+        options.TokenValidationParameters.ValidateIssuer = true;
+        options.TokenValidationParameters.ValidateAudience = true;
+        options.TokenValidationParameters.ValidateLifetime = true;
+        options.TokenValidationParameters.RequireExpirationTime = true;
+        options.TokenValidationParameters.RequireSignedTokens = true;
+        options.TokenValidationParameters.ValidateIssuerSigningKey = true;
+        options.TokenValidationParameters.ValidAlgorithms = [SecurityAlgorithms.RsaSha256, SecurityAlgorithms.EcdsaSha256];
+    });
+}
 
 builder.Services.AddAuthorization(options =>
 {

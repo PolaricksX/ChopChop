@@ -1,8 +1,12 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using UserService.Data.Context;
+using UserService.Data.Images;
 using UserService.Data.Repositories;
+using UserService.Data.Storage;
 using UserService.Domain.Entities;
+using UserService.Domain.Services;
 
 namespace UserService.UnitTests.Fakes;
 
@@ -68,4 +72,71 @@ public static class TestDbContext
         new(new DbContextOptionsBuilder<UserServiceDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
+}
+
+public sealed class FakeProfilePictureStorage : IProfilePictureStorage
+{
+    public Dictionary<string, byte[]> Saved { get; } = [];
+    public List<string> Deleted { get; } = [];
+    public bool FailDeletes { get; set; }
+
+    public Task<string> SaveAsync(byte[] bytes, ProfilePictureFormat format, CancellationToken cancellationToken)
+    {
+        var key = $"{Guid.NewGuid()}.{format.ToString().ToLowerInvariant()}";
+        Saved[key] = bytes;
+        return Task.FromResult(key);
+    }
+
+    public Task DeleteAsync(string key, CancellationToken cancellationToken)
+    {
+        if (FailDeletes)
+        {
+            return Task.FromException(new IOException("Simulated delete failure."));
+        }
+
+        Saved.Remove(key);
+        Deleted.Add(key);
+        return Task.CompletedTask;
+    }
+
+    public Task<Stream?> ReadAsync(string key, CancellationToken cancellationToken)
+    {
+        if (!Saved.TryGetValue(key, out var bytes))
+        {
+            return Task.FromResult<Stream?>(null);
+        }
+
+        Stream stream = new MemoryStream([.. bytes], writable: false);
+        return Task.FromResult<Stream?>(stream);
+    }
+}
+
+public sealed class FakeImageIntegrityChecker(bool isValid = true) : IImageIntegrityChecker
+{
+    public Task<bool> IsValidImageAsync(byte[] imageBytes, CancellationToken cancellationToken) =>
+        Task.FromResult(isValid);
+}
+
+public sealed class FailingUnitOfWork(IUnitOfWork inner, Exception failure) : IUnitOfWork
+{
+    public IRepository<T> Repository<T>()
+        where T : class => inner.Repository<T>();
+
+    public TRepository CustomRepository<TRepository>()
+        where TRepository : class => inner.CustomRepository<TRepository>();
+
+    public Task<int> SaveChangesAsync(CancellationToken token = default) => Task.FromException<int>(failure);
+}
+
+public sealed class RecordingLogger<T> : ILogger<T>
+{
+    public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state)
+        where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+        Entries.Add((logLevel, formatter(state, exception)));
 }

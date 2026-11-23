@@ -58,10 +58,15 @@ public class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task Token_in_query_string_is_not_accepted()
     {
         var token = factory.Jwt.Create("s1");
+        var id = Guid.NewGuid();
 
-        using var response = await client.GetAsync($"{Users}/{Guid.NewGuid()}?access_token={token}");
+        using var byId = await client.GetAsync($"{Users}/{id}?access_token={token}");
+        using var me = await client.GetAsync($"{Users}/me?access_token={token}");
+        using var profilePicture = await client.GetAsync($"{Users}/{id}/profile-picture?access_token={token}");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, byId.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, profilePicture.StatusCode);
     }
 
     [Fact]
@@ -82,8 +87,11 @@ public class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [Theory]
     [InlineData("POST", "/api/v1/users", "users.write")]
     [InlineData("GET", "/api/v1/users/{id}", "users.read")]
+    [InlineData("GET", "/api/v1/users/me", "users.read")]
+    [InlineData("GET", "/api/v1/users/{id}/profile-picture", "users.read")]
     [InlineData("PUT", "/api/v1/users/{id}", "users.write")]
     [InlineData("DELETE", "/api/v1/users/{id}", "users.write")]
+    [InlineData("PUT", "/api/v1/users/{id}/profile-picture", "users.write")]
     [InlineData("GET", "/api/v1/admin/users/{id}", "users.admin")]
     [InlineData("DELETE", "/api/v1/admin/users/{id}", "users.admin")]
     public async Task Every_route_enforces_authentication_scope_direction_and_subject(string method, string route, string requiredScope)
@@ -159,5 +167,36 @@ public class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         using var health = await limitedClient.GetAsync("/health");
         Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+    }
+
+    [Fact]
+    public async Task Profile_picture_route_rejects_bad_tokens_with_401_and_missing_scope_with_403()
+    {
+        var url = $"{Users}/{Guid.NewGuid()}/profile-picture";
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync("PUT", url, "not-a-jwt"));
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync("PUT", url, factory.Jwt.Create("s1", signWithUnknownKey: true)));
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync("PUT", url, factory.Jwt.Create("s1", lifetime: TimeSpan.FromMinutes(-10))));
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync("PUT", url, factory.Jwt.Create("s1", issuer: "https://evil.example")));
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync("PUT", url, factory.Jwt.Create("s1", audience: "another-api")));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync("PUT", url, factory.Jwt.Create("s1", scope: null)));
+    }
+
+    [Fact]
+    public async Task Profile_picture_route_with_users_write_passes_auth_and_hides_other_users_profiles()
+    {
+        using var request = factory.Request(
+            HttpMethod.Put,
+            $"{Users}/{Guid.NewGuid()}/profile-picture",
+            factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "users.write"));
+        var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        form.Add(file, "file", "picture");
+        request.Content = form;
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

@@ -30,6 +30,15 @@ public static class UserEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapGet("/me", GetCurrentAsync)
+            .RequireAuthorization(Policies.UsersRead)
+            .WithName("GetCurrentUser")
+            .WithSummary("Gets the caller's profile. Requires the users.read scope; returns 404 when no profile exists.")
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapPut("/{id:guid}", UpdateAsync)
             .RequireAuthorization(Policies.UsersWrite)
             .WithName("UpdateUser")
@@ -50,13 +59,41 @@ public static class UserEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        const long profilePictureRequestLimitBytes = 2 * 1024 * 1024;
+        group.MapPut("/{id:guid}/profile-picture", PutProfilePictureAsync)
+            .RequireAuthorization(Policies.UsersWrite)
+            .WithName("PutUserProfilePicture")
+            .WithSummary("Uploads or replaces the caller's profile picture (multipart/form-data, one file).")
+            .Accepts<IFormFile>("multipart/form-data")
+            .WithMetadata(new RequestSizeLimitAttribute(profilePictureRequestLimitBytes))
+            .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = profilePictureRequestLimitBytes })
+            .DisableAntiforgery() // Bearer-token API endpoint; no cookie authentication flow.
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
+        group.MapGet("/{id:guid}/profile-picture", GetProfilePictureAsync)
+            .RequireAuthorization(Policies.UsersRead)
+            .WithName("GetUserProfilePicture")
+            .WithSummary("Gets the caller's profile picture. Requires the users.read scope; other users and missing pictures return 404.")
+            .Produces(StatusCodes.Status200OK, contentType: "image/jpeg")
+            .Produces(StatusCodes.Status200OK, contentType: "image/png")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         var admin = app.MapGroup("/api/v1/admin/users").WithTags("User administration");
 
         admin.MapGet("/{id:guid}", async (Guid id, ICurrentUser user, UserProfileService users, CancellationToken token) =>
                 Results.Ok((await users.GetAsAdminAsync(user.Id, id, token)).ToResponse()))
             .RequireAuthorization(Policies.UsersAdmin)
             .WithName("AdminGetUser")
-            .WithSummary("Reads any user's profile. Requires the users.admin scope.")
+            .WithSummary("Reads any user's profile (not their picture). Requires the users.admin scope.")
             .Produces<UserResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -98,6 +135,9 @@ public static class UserEndpoints
     private static async Task<IResult> GetAsync(Guid id, ICurrentUser user, UserProfileService users, CancellationToken token) =>
         Results.Ok((await users.GetAsync(user.Id, id, token)).ToResponse());
 
+    private static async Task<IResult> GetCurrentAsync(ICurrentUser user, UserProfileService users, CancellationToken token) =>
+        Results.Ok((await users.GetCurrentAsync(user.Id, token)).ToResponse());
+
     private static async Task<IResult> UpdateAsync(
         Guid id,
         UpdateUserRequest? request,
@@ -118,5 +158,42 @@ public static class UserEndpoints
     {
         await users.DeleteAsync(user.Id, id, token);
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> PutProfilePictureAsync(
+        Guid id,
+        HttpRequest request,
+        IFormFile? file,
+        ICurrentUser user,
+        UserProfileService users,
+        CancellationToken token)
+    {
+        if (file is null)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["file"] = ["Exactly one profile picture file is required."] });
+        }
+
+        var form = await request.ReadFormAsync(token);
+        if (form.Files.Count != 1)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["file"] = ["Exactly one profile picture file is required."] });
+        }
+
+        await users.ReplaceProfilePictureAsync(user.Id, id, file, token);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetProfilePictureAsync(
+        Guid id,
+        HttpContext httpContext,
+        ICurrentUser user,
+        UserProfileService users,
+        CancellationToken token)
+    {
+        var picture = await users.GetProfilePictureAsync(user.Id, id, token);
+        httpContext.Response.RegisterForDispose(picture.Stream);
+        httpContext.Response.Headers.CacheControl = "private, no-store";
+        httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return Results.File(picture.Stream, contentType: picture.ContentType, enableRangeProcessing: false);
     }
 }

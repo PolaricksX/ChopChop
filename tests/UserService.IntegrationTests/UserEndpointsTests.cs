@@ -175,6 +175,18 @@ public class UserEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Get_me_keeps_the_default_cache_control_header()
+    {
+        var caller = NewCaller();
+        await CreateUserAsync(caller);
+
+        using var response = await SendAsync(caller, HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task Get_of_another_users_profile_or_unknown_id_is_404()
     {
         var owner = await CreateUserAsync(NewCaller());
@@ -189,6 +201,7 @@ public class UserEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.DoesNotContain(owner.Email, await other.Content.ReadAsStringAsync());
     }
 
+    [Fact]
     [Fact]
     public async Task Admin_can_read_and_disable_any_profile_but_a_normal_user_cannot()
     {
@@ -215,6 +228,54 @@ public class UserEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.NoContent, disable.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, ownerAfter.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, adminAfter.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_me_returns_the_callers_profile()
+    {
+        var caller = NewCaller();
+        var created = await CreateUserAsync(caller);
+
+        using var response = await SendAsync(caller, HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(created, await response.Content.ReadFromJsonAsync<UserResponse>());
+    }
+
+    [Fact]
+    public async Task Get_me_returns_404_when_the_caller_has_no_profile()
+    {
+        using var response = await SendAsync(NewCaller(), HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_me_never_returns_another_users_profile()
+    {
+        var ownerCaller = NewCaller();
+        var otherCaller = NewCaller();
+        var owner = await CreateUserAsync(ownerCaller);
+        var other = await CreateUserAsync(otherCaller);
+
+        using var response = await SendAsync(otherCaller, HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var returned = (await response.Content.ReadFromJsonAsync<UserResponse>())!;
+        Assert.Equal(other.Id, returned.Id);
+        Assert.NotEqual(owner.Id, returned.Id);
+    }
+
+    [Fact]
+    public async Task Get_me_is_handled_by_the_me_endpoint_not_the_id_endpoint()
+    {
+        var caller = NewCaller();
+        var created = await CreateUserAsync(caller);
+
+        using var response = await SendAsync(caller, HttpMethod.Get, "/api/v1/users/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(created.Id, (await response.Content.ReadFromJsonAsync<UserResponse>())!.Id);
     }
 
     [Fact]

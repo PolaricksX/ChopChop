@@ -15,4 +15,11 @@ public sealed class EquipmentRequirement
     public string Name { get; private set; }
     public bool Required { get; private set; }
     public string? MatchingMetadata { get; private set; }
+    public int Position { get; private set; }
+
+    internal void AssignPosition(int position)
+    {
+        if (position < 0) throw new ArgumentOutOfRangeException(nameof(position));
+        Position = position;
+    }
 }

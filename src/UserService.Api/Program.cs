@@ -14,6 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"));
 
@@ -36,12 +37,16 @@ builder.Services.AddUserServiceData(sp =>
         ?? throw new InvalidOperationException("ConnectionStrings:ChopChop is not configured.");
 });
 
-builder.Services.AddOptions<AuthOptions>()
-    .BindConfiguration("Auth")
-    .Validate(AuthOptions.IsValid, "Auth:Authority (absolute URI) and Auth:Audience must be configured.")
-    .ValidateOnStart();
-builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+if (!global::ChopChop.Shared.DevelopmentAuthentication.AddIfEnabled(
+        builder.Services, builder.Configuration, builder.Environment))
+{
+    builder.Services.AddOptions<AuthOptions>()
+        .BindConfiguration("Auth")
+        .Validate(AuthOptions.IsValid, "Auth:Authority (absolute URI) and Auth:Audience must be configured.")
+        .ValidateOnStart();
+    builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+}
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
     .AddPolicy(Policies.UsersRead, p => p.RequireAuthenticatedUser().RequireAssertion(c => ScopeClaims.CanUse(c.User, Policies.UsersRead)))

@@ -8,6 +8,7 @@ const authState = vi.hoisted(() => ({
   loginWithRedirect: vi.fn(),
   getAccessTokenSilently: vi.fn(),
   getAccessTokenWithPopup: vi.fn(),
+  logout: vi.fn(),
   isAuthenticated: false,
   isLoading: false,
 }))
@@ -20,7 +21,7 @@ vi.mock('@auth0/auth0-react', () => ({
     isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
     loginWithRedirect: authState.loginWithRedirect,
-    logout: vi.fn(),
+    logout: authState.logout,
     user: undefined,
   }),
 }))
@@ -32,13 +33,72 @@ describe('App authentication gate', () => {
   })
 
   beforeEach(() => {
+    vi.stubEnv('VITE_DEV_AUTH', 'false')
     window.history.replaceState(null, '', '/')
     sessionStorage.clear()
     authState.loginWithRedirect.mockReset()
     authState.getAccessTokenSilently.mockReset().mockResolvedValue('access-token')
     authState.getAccessTokenWithPopup.mockReset().mockResolvedValue('popup-token')
+    authState.logout.mockReset().mockResolvedValue(undefined)
     authState.isAuthenticated = false
     authState.isLoading = false
+  })
+
+  it('calls Auth0 logout with the existing returnTo parameter', async () => {
+    authState.isAuthenticated = true
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    await waitFor(() => expect(authState.logout).toHaveBeenCalledWith({
+      logoutParams: { returnTo: `${window.location.origin}/` },
+    }))
+  })
+
+  it('cleans up the loaded profile before calling Auth0 logout', async () => {
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_USER_SERVICE_AUDIENCE', 'https://api.chopchop.local/user-service')
+    const order: string[] = []
+    const revokeObjectUrl = vi.fn(() => {
+      order.push('cleanup')
+    })
+    const createObjectUrl = vi.fn().mockReturnValue('blob:profile-picture')
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: createObjectUrl,
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: revokeObjectUrl,
+    })
+    authState.logout.mockImplementationOnce(async () => {
+      order.push('logout')
+      expect(revokeObjectUrl).toHaveBeenCalledWith('blob:profile-picture')
+    })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: '8d54a67a-f876-4215-a801-5c66426d0786',
+        displayName: 'Taylor Cook',
+        username: 'tcook',
+        email: 'taylor@example.com',
+      })))
+      .mockResolvedValueOnce(new Response(new Blob(['pic'], { type: 'image/png' }), { status: 200 })))
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Profile' }))
+    expect(await screen.findByText('Taylor Cook')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Profile picture' })).toHaveAttribute('src', 'blob:profile-picture')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    await waitFor(() => expect(authState.logout).toHaveBeenCalledTimes(1))
+    expect(order).toEqual(['cleanup', 'logout'])
+    expect(screen.queryByText('Taylor Cook')).toBeNull()
+    expect(screen.queryByText('taylor@example.com')).toBeNull()
+    expect(screen.queryByRole('img', { name: 'Profile picture' })).toBeNull()
   })
 
   it('keeps recipe and review tools behind OIDC sign-in', async () => {
@@ -52,7 +112,27 @@ describe('App authentication gate', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in to continue' }))
 
-    expect(authState.loginWithRedirect).toHaveBeenCalledOnce()
+    expect(authState.loginWithRedirect).toHaveBeenCalledWith({
+      authorizationParams: { scope: 'cookbook.read' },
+    })
+  })
+
+  it('starts Auth0 Universal Signup from the create-account action', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
+
+    expect(authState.loginWithRedirect).toHaveBeenCalledWith({
+      authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup' },
+    })
+  })
+
+  it('opens the app without Auth0 when local development auth is enabled', async () => {
+    vi.stubEnv('VITE_DEV_AUTH', 'true')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Create a recipe draft' })).toBeInTheDocument()
+    expect(screen.getByText('Development mode')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in to continue' })).toBeNull()
   })
 
   it('opens meal planning within the shared authenticated client', async () => {
@@ -76,6 +156,24 @@ describe('App authentication gate', () => {
       authorizationParams: {
         audience: 'https://api.chopchop.local/meal-planner',
         scope: 'mealplans.read',
+      },
+    })
+  })
+
+  it('opens the authenticated Pantry tab with a Pantry API token', async () => {
+    authState.isAuthenticated = true
+    vi.stubEnv('VITE_AUTH0_PANTRY_AUDIENCE', 'https://api.chopchop.local/pantry')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([]))))
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'My Pantry' }))
+
+    expect(await screen.findByRole('heading', { name: 'My pantry' })).toBeInTheDocument()
+    expect(await screen.findByText('No pantry items match these filters.')).toBeInTheDocument()
+    expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
+      authorizationParams: {
+        audience: 'https://api.chopchop.local/pantry',
+        scope: 'pantry.read',
       },
     })
   })
@@ -258,8 +356,8 @@ describe('App authentication gate', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Equipment' }))
 
-    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeTruthy()
-    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Equipment' })).toBeInTheDocument()
+    expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeInTheDocument()
     expect(authState.getAccessTokenSilently).toHaveBeenCalledWith({
       authorizationParams: {
         audience: 'https://api.chopchop.local/equipment',
