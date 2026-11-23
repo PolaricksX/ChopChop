@@ -24,6 +24,15 @@ pantry, and user equipment. Pantry and Equipment use the shared authenticated
 site with separate API audiences and least-privilege delegated scopes. Photos
 are intentionally unavailable.
 
+The client uses cached access tokens or refresh tokens for each API. When an
+API token requires interactive Auth0 authorization, the client offers an
+**Authorize access** button. It opens an Auth0 popup so the current page and
+unsubmitted form contents remain in place; retry the action afterward. Allow
+popups for the local client. The silent iframe fallback is disabled because
+blocked third-party cookies can cause it to clear the local sign-in session.
+If multiple permissions need authorization, they are presented one at a time.
+API permissions must also be assigned to the signed-in user in Auth0.
+
 The [Meal Planning client guide](../../docs/meal-planning-client.md) covers the
 Meal Planner API configuration and behavior.
 

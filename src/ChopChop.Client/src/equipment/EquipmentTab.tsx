@@ -4,6 +4,7 @@ import {
   createEquipment,
   deleteEquipment,
   EquipmentApiError,
+  type EquipmentAccessTokenProvider,
   listEquipment,
   setEquipmentAvailability,
   updateEquipment,
@@ -31,7 +32,7 @@ type FilterDraft = {
 type AppliedFilters = Pick<EquipmentFilters, 'search' | 'type' | 'condition' | 'availability'>
 type EquipmentTabProps =
   | { accessToken: string; getAccessToken?: never }
-  | { accessToken?: never; getAccessToken: (permission: EquipmentPermission) => Promise<string> }
+  | { accessToken?: never; getAccessToken: EquipmentAccessTokenProvider }
 
 const emptyForm: EquipmentFormState = {
   name: '',

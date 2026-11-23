@@ -13,11 +13,12 @@ public sealed class TestJwt : IDisposable
     private readonly RSA otherRsa = RSA.Create(2048);
     public SecurityKey SigningKey => new RsaSecurityKey(rsa) { KeyId = "cookbook-test-key" };
 
-    public string Create(string subject, string? scope = "cookbook.read cookbook.write", string issuer = Issuer, string audience = Audience, TimeSpan? lifetime = null, bool signWithUnknownKey = false)
+    public string Create(string? subject, string? scope = "cookbook.read cookbook.write", string issuer = Issuer, string audience = Audience, TimeSpan? lifetime = null, bool signWithUnknownKey = false)
     {
         var expires = DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(5));
         var key = new RsaSecurityKey(signWithUnknownKey ? otherRsa : rsa) { KeyId = "cookbook-test-key" };
-        var claims = new List<Claim> { new("sub", subject) };
+        var claims = new List<Claim>();
+        if (subject is not null) claims.Add(new Claim("sub", subject));
         if (scope is not null) claims.Add(new Claim("scope", scope));
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {

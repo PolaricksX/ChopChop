@@ -13,6 +13,8 @@
   [ADR 0007](docs/adr/0007-user-equipment-service-scope.md). See the
   [Milestone 3 Architecture & Reflection](docs/milestone-3-architecture-reflection.md)
   for the architecture summary and team reflection.
+- Milestone 4 security operations, CI checks, and secret handling are documented
+  in [docs/milestone-4-security-operations.md](docs/milestone-4-security-operations.md).
 - Service setup and API contracts are documented in
   [docs/local-development.md](docs/local-development.md) and
   [docs/api-contracts.md](docs/api-contracts.md). The .NET solution and React

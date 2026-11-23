@@ -129,6 +129,37 @@ public sealed class PantryApiAuthenticationTests : IClassFixture<PantryApiFactor
         }
     }
 
+    [Fact]
+    public async Task Other_subjects_cannot_update_consume_or_mark_unavailable_anothers_item()
+    {
+        var owner = $"owner-{Guid.NewGuid():N}";
+        var item = new PantryItem(Guid.NewGuid(), owner, "Flour", PantryType.Grains, 1, Unit.Cup);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PantryDbContext>();
+            db.PantryItems.Add(item);
+            await db.SaveChangesAsync();
+        }
+
+        var intruder = factory.Token(subject: $"intruder-{Guid.NewGuid():N}", scope: "pantry.write");
+        var requests = new (HttpMethod Method, string Path)[]
+        {
+            (HttpMethod.Put, $"/api/v1/pantry/{item.Id}"),
+            (HttpMethod.Post, $"/api/v1/pantry/{item.Id}/consume"),
+            (HttpMethod.Post, $"/api/v1/pantry/{item.Id}/unavailable"),
+        };
+        foreach (var (method, path) in requests)
+        {
+            using var request = new HttpRequestMessage(method, path)
+            {
+                Content = JsonContent.Create(new { Name = "Flour", Type = 0, Quantity = 2, Unit = 0 }),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", intruder);
+            request.Headers.TryAddWithoutValidation("If-Match", Convert.ToBase64String(new byte[] { 1 }));
+            Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(request)).StatusCode);
+        }
+    }
+
     private static HttpRequestMessage Request(HttpMethod method, string token)
     {
         var request = new HttpRequestMessage(method, "/api/v1/pantry/");

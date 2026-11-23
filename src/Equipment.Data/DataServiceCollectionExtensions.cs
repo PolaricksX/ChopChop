@@ -1,9 +1,9 @@
 using Equipment.Data.Context;
+using Equipment.Data.Persistence;
 using Equipment.Data.Repositories;
 using Equipment.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Equipment.Data.Persistence;
 
 namespace Equipment.Data;
 

@@ -65,19 +65,12 @@ builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser().Build();
+    // pantry.write also grants read, so write-only clients can list their items.
     options.AddPolicy("pantry.read", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
         HasValidSubject(context.User) &&
-        (context.User.Claims.Where(c => c.Type is "scope" or "scp")
-            .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            .Contains("pantry.read") ||
-        context.User.Claims.Where(c => c.Type is "scope" or "scp")
-            .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            .Contains("pantry.write"))));
+        (HasScope(context.User, "pantry.read") || HasScope(context.User, "pantry.write"))));
     options.AddPolicy("pantry.write", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
-        HasValidSubject(context.User) &&
-        context.User.Claims.Where(c => c.Type is "scope" or "scp")
-            .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            .Contains("pantry.write")));
+        HasValidSubject(context.User) && HasScope(context.User, "pantry.write")));
 });
 if (!string.IsNullOrWhiteSpace(builder.Configuration["Messaging:ConnectionString"]))
 {
@@ -160,5 +153,10 @@ static bool HasValidSubject(System.Security.Claims.ClaimsPrincipal user)
     var subject = user.FindFirst("sub")?.Value;
     return !string.IsNullOrWhiteSpace(subject) && subject.Length <= 200 && !subject.Any(char.IsControl);
 }
+
+static bool HasScope(System.Security.Claims.ClaimsPrincipal user, string scope) =>
+    user.Claims.Where(c => c.Type is "scope" or "scp")
+        .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        .Contains(scope);
 
 public partial class Program { }

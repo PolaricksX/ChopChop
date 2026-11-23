@@ -70,6 +70,33 @@ public sealed class RecipeEndpointsTests(ApiFactory factory) : IClassFixture<Api
     }
 
     [Fact]
+    public async Task Another_user_cannot_change_a_draft_and_drafts_are_not_public()
+    {
+        var owner = NewCaller();
+        var stranger = NewCaller();
+        using var create = await SendAsync(owner, HttpMethod.Post, Recipes, Body());
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("recipeId").GetGuid();
+
+        using var update = await SendAsync(stranger, HttpMethod.Put, $"{Recipes}/{id}/draft", new { expectedVersion = 1, content = Body("Stolen") });
+        using var delete = await SendAsync(stranger, HttpMethod.Delete, $"{Recipes}/{id}/draft");
+        using var publish = await SendAsync(stranger, HttpMethod.Post, $"{Recipes}/{id}/publish");
+        using var unpublish = await SendAsync(stranger, HttpMethod.Post, $"{Recipes}/{id}/unpublish");
+        using var publicDetail = await client.GetAsync($"{Recipes}/{id}");
+        using var publicVersion = await client.GetAsync($"{Recipes}/{id}/versions/1");
+
+        Assert.Equal(HttpStatusCode.NotFound, update.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, publish.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unpublish.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, publicDetail.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, publicVersion.StatusCode);
+
+        using var intact = await SendAsync(owner, HttpMethod.Get, $"{Recipes}/{id}/draft");
+        Assert.Equal(HttpStatusCode.OK, intact.StatusCode);
+        Assert.Equal("Tomato soup", (await intact.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("version").GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task Create_validate_isolate_update_publish_unpublish_hide_and_delete_draft()
     {
         var owner = NewCaller();

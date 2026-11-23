@@ -79,6 +79,30 @@ public class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, await GetAsync(factory.Jwt.Create("s1", scope: "recipes.read")));
     }
 
+    [Theory]
+    [InlineData("POST", "/api/v1/users", "users.write")]
+    [InlineData("GET", "/api/v1/users/{id}", "users.read")]
+    [InlineData("PUT", "/api/v1/users/{id}", "users.write")]
+    [InlineData("DELETE", "/api/v1/users/{id}", "users.write")]
+    public async Task Every_route_enforces_authentication_scope_direction_and_subject(string method, string route, string requiredScope)
+    {
+        var url = route.Replace("{id}", Guid.NewGuid().ToString());
+        var wrongDirectionScope = requiredScope == "users.read" ? "users.write" : "users.read";
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(method, url, null));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create("s1", "recipes.read")));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create("s1", wrongDirectionScope)));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create(null, requiredScope)));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create(new string('x', 257), requiredScope)));
+    }
+
+    private async Task<HttpStatusCode> StatusAsync(string method, string url, string? token)
+    {
+        using var request = factory.Request(new HttpMethod(method), url, token);
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
+    }
+
     [Fact]
     public async Task Token_with_the_required_scope_succeeds()
     {

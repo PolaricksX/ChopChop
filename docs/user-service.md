@@ -21,6 +21,7 @@ Errors are RFC 9457 problem details including `correlationId` (`X-Correlation-Id
 
 ## Behaviour
 - A profile belongs to the token `sub`. `POST` creates the caller's own profile; a second one gives 409.
+- Every operation requires its scope and a usable `sub` claim (non-blank, at most 256 characters); a token with the right scope but no usable subject gets 403. The owner is never read from the request body, route, or headers.
 - Access is owner-only; other users' profiles return 404.
 - `POST` requires an `Idempotency-Key` header. Same key and payload replays the original result; same key with a different payload gives 409.
 - `PUT` requires the `version` from the last response; a stale version gives 409.

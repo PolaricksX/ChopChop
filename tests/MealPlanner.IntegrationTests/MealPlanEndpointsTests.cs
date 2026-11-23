@@ -144,6 +144,57 @@ public sealed class MealPlanEndpointsTests(ApiFactory factory) : IClassFixture<A
     }
 
     [Fact]
+    public async Task Caller_cannot_use_another_users_plan_status_or_meal_entry_routes()
+    {
+        var owner = NewCaller();
+        var stranger = NewCaller();
+        var plan = await CreatePlanAsync(owner);
+        var mealsPath = $"{Plans}/{plan.Id}/meals";
+        using var created = await SendAsync(
+            owner,
+            HttpMethod.Post,
+            mealsPath,
+            new { date = "2026-11-01", slot = "Breakfast", title = "Oats", recipeId = (Guid?)null, servings = 1, version = plan.Version },
+            "owner-meal");
+        var entry = (await created.Content.ReadFromJsonAsync<MealEntryResponse>(JsonOptions))!;
+
+        var responses = new[]
+        {
+            await SendAsync(stranger, HttpMethod.Patch, $"{Plans}/{plan.Id}/status", new { status = "Active", version = plan.Version }),
+            await SendAsync(stranger, HttpMethod.Get, mealsPath),
+            await SendAsync(
+                stranger,
+                HttpMethod.Post,
+                mealsPath,
+                new { date = "2026-11-02", slot = "Lunch", title = "Intruder", recipeId = (Guid?)null, servings = 1, version = plan.Version },
+                "stranger-meal"),
+            await SendAsync(
+                stranger,
+                HttpMethod.Put,
+                $"{mealsPath}/{entry.Id}",
+                new { date = "2026-11-01", slot = "Breakfast", title = "Stolen", recipeId = (Guid?)null, servings = 1, version = entry.Version }),
+            await SendAsync(
+                stranger,
+                HttpMethod.Patch,
+                $"{mealsPath}/{entry.Id}/status",
+                new { status = "InProgress", version = entry.Version }),
+            await SendAsync(stranger, HttpMethod.Delete, $"{mealsPath}/{entry.Id}", ifMatch: $"\"{entry.Version}\""),
+        };
+
+        try
+        {
+            Assert.All(responses, response => Assert.Equal(HttpStatusCode.NotFound, response.StatusCode));
+        }
+        finally
+        {
+            foreach (var response in responses)
+            {
+                response.Dispose();
+            }
+        }
+    }
+
+    [Fact]
     public async Task Plan_pagination_and_size_limits_are_enforced()
     {
         var caller = NewCaller();

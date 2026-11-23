@@ -1,9 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Cors.Infrastructure;
-using Microsoft.Extensions.Options;
 using Equipment.Api.Endpoints;
 using Equipment.Api.Infrastructure;
 using Equipment.Api.Services;
@@ -11,7 +8,10 @@ using Equipment.Data;
 using Equipment.Data.Context;
 using Equipment.Data.Messaging;
 using Equipment.Data.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);

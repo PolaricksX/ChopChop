@@ -5,6 +5,12 @@ import type {
   EquipmentUpsertRequest,
 } from './types'
 
+export type EquipmentPermission = 'equipment.read' | 'equipment.write'
+export type EquipmentAccessTokenProvider = (
+  permission: EquipmentPermission,
+  forceRefresh?: boolean,
+) => Promise<string>
+
 export class EquipmentApiError extends Error {
   readonly status: number
 

@@ -64,16 +64,16 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     options.AddPolicy(Policies.ReviewsCreate, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
-            context.User.HasScope(Policies.ReviewsCreate)));
+            context.User.CanUse(Policies.ReviewsCreate)));
     options.AddPolicy(Policies.ReviewsRead, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
-            context.User.HasScope(Policies.ReviewsRead)));
+            context.User.CanUse(Policies.ReviewsRead)));
     options.AddPolicy(Policies.ReviewsWrite, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
-            context.User.HasScope(Policies.ReviewsWrite)));
+            context.User.CanUse(Policies.ReviewsWrite)));
     options.AddPolicy(Policies.ReviewsModerate, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
-            context.User.HasScope(Policies.ReviewsModerate)));
+            context.User.CanUse(Policies.ReviewsModerate)));
 });
 if (!ChopChop.Shared.DevelopmentAuthentication.AddIfEnabled(
         builder.Services, builder.Configuration, builder.Environment))
@@ -275,6 +275,13 @@ app.MapPost("/api/moderation/reviews/{id:guid}", async (
             {
                 ["request"] = [exception.Message]
             });
+        }
+        catch (SelfModerationException)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Forbidden",
+                detail: "Moderators cannot moderate their own review.");
         }
         catch (InvalidOperationException exception)
         {

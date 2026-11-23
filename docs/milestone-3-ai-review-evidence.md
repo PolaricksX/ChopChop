@@ -45,33 +45,41 @@ derived only from validated token claims. The SPA has no client secret. The
 client is the SPA, the resource owner is the signed-in user, Auth0 is the
 authorization server, and each ChopChop API is its own resource server.
 
-| API operation | Policy and required scope |
-|---|---|
-| `POST /api/recipe-generations` | `recipe-generations.create` |
-| `GET /api/recipe-generations/{id}` | `recipe-generations.read` |
-| `POST /api/recipe-generations/{id}/confirm` | `recipe-generations.confirm` |
-| `POST /api/reviews` | `reviews.create` |
-| `GET /api/reviews/{id}`, `GET /api/recipes/{recipeId}/reviews` | `reviews.read` |
-| `PUT /api/reviews/{id}`, `DELETE /api/reviews/{id}` | `reviews.write` |
-| `GET /api/moderation/reviews`, `POST /api/moderation/reviews/{id}` | `reviews.moderate` |
-| `/`, `/health` | Explicitly anonymous |
-| OpenAPI | Authenticated fallback policy |
+| API operation | Policy and required scope | Ownership |
+|---|---|---|
+| `POST /api/recipe-generations` | `recipe-generations.create` | Owner taken from the token subject |
+| `GET /api/recipe-generations/{id}` | `recipe-generations.read` | `404` if the generation is not the caller's |
+| `POST /api/recipe-generations/{id}/confirm` | `recipe-generations.confirm` | `404` if the generation is not the caller's |
+| `POST /api/reviews` | `reviews.create` | Owner taken from the token subject |
+| `GET /api/reviews/{id}` | `reviews.read` | `404` if the review is not the caller's |
+| `GET /api/recipes/{recipeId}/reviews` | `reviews.read` | Published reviews only |
+| `PUT /api/reviews/{id}`, `DELETE /api/reviews/{id}` | `reviews.write` | `404` if the review is not the caller's |
+| `GET /api/moderation/reviews` | `reviews.moderate` | Pending queue |
+| `POST /api/moderation/reviews/{id}` | `reviews.moderate` | `403` when the moderator is the review's author |
+| `/`, `/health` | Explicitly anonymous | None |
+| OpenAPI | Authenticated fallback policy | None |
 
 Both APIs use `Auth:Authority` and `Auth:Audience` configuration. Their
 framework bearer handlers validate signing key/signature, issuer, audience,
 expiry, and signing-key metadata. HTTPS metadata is required outside
 Development; development settings do not contain production credentials.
 Policies authorize an exact space-delimited `scope`/`scp` or Auth0 `permissions`
-claim. Unannotated endpoints are protected by a fallback policy.
+claim and also require a usable `sub` claim (with `iss` when `sub` is not a
+GUID), so a token with the right scope but no usable subject returns `403`.
+The owner is never read from the request body, route, or headers. Unannotated
+endpoints are protected by a fallback policy.
 
 ## Validate
 
 Authentication integration tests exercise the real framework bearer handler
 with test signing keys and cover missing, malformed, invalid-signature,
 expired, wrong-issuer, and wrong-audience tokens (`401`); missing or unrelated
-scopes (`403`); correct per-operation scopes; anonymous root access; protected
-OpenAPI; and stable mapping of opaque issuer/subject identities. Full
-database-backed service tests and an end-to-end browser run require Docker
+scopes (`403`); correct per-operation scopes; a scope that belongs to another
+route of the same API (`403`); a valid scope with no usable subject (`403`);
+anonymous root access; protected OpenAPI; and stable mapping of opaque
+issuer/subject identities. Service-level unit tests with fakes cover
+cross-user access to reviews and generations and the self-moderation rule.
+Full database-backed service tests and an end-to-end browser run require Docker
 dependencies and a configured Azure OpenAI deployment.
 
 Verification results in this environment:

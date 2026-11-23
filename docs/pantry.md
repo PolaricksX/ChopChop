@@ -22,9 +22,21 @@ Use HTTPS for the authority outside Development. There is no test-header
 authentication bypass. Ownership is derived from the validated `sub` claim,
 never from request data. `GET /api/v1/pantry` requires `pantry.read` or
 `pantry.write`; POST, PUT, consume, unavailable, and DELETE require
-`pantry.write`. `/health` is public. Tests exercise the JWT handler using test
+`pantry.write`. Every operation also requires a valid `sub` claim. Items owned
+by another subject return 404, not 403, so item IDs cannot be probed. `/health`
+is public. Tests exercise the JWT handler using test
 signing credentials; live Keycloak and SQL Server still require separate
 end-to-end validation.
+
+| Operation | Endpoint | Required scope | Ownership check |
+| --- | --- | --- | --- |
+| List | `GET /api/v1/pantry` | `pantry.read` or `pantry.write` | Results filtered by `sub` |
+| Add | `POST /api/v1/pantry` | `pantry.write` | Owner set from `sub` |
+| Update | `PUT /api/v1/pantry/{id}` | `pantry.write` | Item must belong to `sub`; `If-Match` required |
+| Consume | `POST /api/v1/pantry/{id}/consume` | `pantry.write` | Item must belong to `sub`; `If-Match` required |
+| Mark unavailable | `POST /api/v1/pantry/{id}/unavailable` | `pantry.write` | Item must belong to `sub`; `If-Match` required |
+| Delete | `DELETE /api/v1/pantry/{id}` | `pantry.write` | Item must belong to `sub` |
+
 
 For local development set `Auth__Authority=http://localhost:8080/realms/chopchop`,
 `Auth__Audience=pantry-api`, and a SQL Server `ConnectionStrings__Pantry`

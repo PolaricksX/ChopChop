@@ -127,6 +127,9 @@ public sealed class ReviewApplicationService(
         if (review is null)
             return false;
 
+        if (review.OwnerId == moderatorId)
+            throw new SelfModerationException();
+
         review.Moderate(moderatorId, request.Status, request.Reason, timeProvider.GetUtcNow());
         var eventAction = request.Status.ToString().ToLowerInvariant();
         await WriteReviewEventAsync(
@@ -194,5 +197,9 @@ public sealed class ReviewApplicationService(
 }
 
 public sealed class DuplicateReviewException : Exception
+{
+}
+
+public sealed class SelfModerationException : Exception
 {
 }

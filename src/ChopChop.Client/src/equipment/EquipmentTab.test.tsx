@@ -40,9 +40,11 @@ const equipment: Equipment = {
   updatedAtUtc: '2026-11-04T12:00:00Z',
   version: 'AQIDBAUGBwg=',
 }
+const getAccessToken = vi.fn(async () => 'token')
 
 describe('EquipmentTab', () => {
   beforeEach(() => {
+    getAccessToken.mockClear()
     vi.mocked(listEquipment).mockResolvedValue({
       items: [],
       page: 1,
@@ -57,14 +59,26 @@ describe('EquipmentTab', () => {
   })
 
   it('shows loading and empty states, then requests the caller-owned first page', async () => {
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
 
     expect(await screen.findByText('No equipment yet. Add your first kitchen item.')).toBeTruthy()
+    expect(getAccessToken).toHaveBeenCalledWith('equipment.read')
     expect(listEquipment).toHaveBeenCalledWith('token', { page: 1, pageSize: 20 })
   })
 
+  it('reloads when an explicit access token changes', async () => {
+    const { rerender } = render(<EquipmentTab accessToken="first-token" />)
+    await screen.findByText('No equipment yet. Add your first kitchen item.')
+    vi.mocked(listEquipment).mockImplementationOnce(() => new Promise(() => {}))
+
+    rerender(<EquipmentTab accessToken="second-token" />)
+
+    expect(screen.getByText('Loading equipment…')).toBeTruthy()
+    await waitFor(() => expect(listEquipment).toHaveBeenLastCalledWith('second-token', { page: 1, pageSize: 20 }))
+  })
+
   it('validates required fields and prevents submitting an empty item', async () => {
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     fireEvent.click(screen.getByRole('button', { name: 'Add equipment' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save equipment' }))
 
@@ -73,7 +87,7 @@ describe('EquipmentTab', () => {
   })
 
   it('creates a typed equipment DTO and refreshes the list', async () => {
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     fireEvent.click(screen.getByRole('button', { name: 'Add equipment' }))
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: '  My pan  ' } })
     fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '3' } })
@@ -90,6 +104,7 @@ describe('EquipmentTab', () => {
       notes: null,
       location: null,
     }, expect.any(String)))
+    expect(getAccessToken).toHaveBeenCalledWith('equipment.write')
     expect(await screen.findByText('Equipment added.')).toBeTruthy()
     expect(listEquipment).toHaveBeenCalledTimes(2)
   })
@@ -98,7 +113,7 @@ describe('EquipmentTab', () => {
     vi.mocked(createEquipment)
       .mockRejectedValueOnce(new Error('network'))
       .mockResolvedValueOnce(equipment)
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     fireEvent.click(screen.getByRole('button', { name: 'Add equipment' }))
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Stock pot' } })
 
@@ -118,7 +133,7 @@ describe('EquipmentTab', () => {
     vi.mocked(createEquipment).mockImplementation(
       () => new Promise((resolve) => { finishCreate = resolve }),
     )
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     fireEvent.click(screen.getByRole('button', { name: 'Add equipment' }))
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Stock pot' } })
     const submit = screen.getByRole('button', { name: 'Save equipment' })
@@ -133,7 +148,7 @@ describe('EquipmentTab', () => {
   })
 
   it('applies search and filters and resets pagination', async () => {
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     await screen.findByText('No equipment yet. Add your first kitchen item.')
     fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'pan' } })
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'Cookware' } })
@@ -158,7 +173,7 @@ describe('EquipmentTab', () => {
       pageSize: 20,
       totalCount: 21,
     })
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     await screen.findByRole('heading', { name: 'Saucepan' })
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
@@ -175,7 +190,7 @@ describe('EquipmentTab', () => {
       pageSize: 20,
       totalCount: 1,
     })
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     await screen.findByRole('heading', { name: 'Saucepan' })
     fireEvent.click(screen.getByRole('button', { name: 'Mark unavailable' }))
 
@@ -194,7 +209,7 @@ describe('EquipmentTab', () => {
       pageSize: 20,
       totalCount: 1,
     })
-    render(<EquipmentTab accessToken="token" />)
+    render(<EquipmentTab getAccessToken={getAccessToken} />)
     await screen.findByRole('heading', { name: 'Saucepan' })
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 

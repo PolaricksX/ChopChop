@@ -110,13 +110,13 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     options.AddPolicy(Policies.GenerationCreate, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
-            context.User.HasScope(Policies.GenerationCreate)));
+            context.User.CanUse(Policies.GenerationCreate)));
     options.AddPolicy(Policies.GenerationRead, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
-            context.User.HasScope(Policies.GenerationRead)));
+            context.User.CanUse(Policies.GenerationRead)));
     options.AddPolicy(Policies.GenerationConfirm, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context =>
-            context.User.HasScope(Policies.GenerationConfirm)));
+            context.User.CanUse(Policies.GenerationConfirm)));
 });
 
 var app = builder.Build();

@@ -78,3 +78,16 @@ Press Ctrl+C in the launcher terminal to stop the site. The local database and
 broker data are preserved. For later starts, run the launcher command again
 from the repository root; repeat `npm ci` only if the client dependencies need
 to be installed or updated.
+
+## AI provider and security operations
+
+For AI generation, configure `AzureOpenAI:Endpoint`, `AzureOpenAI:Deployment`,
+and `AzureOpenAI:ApiKey` using .NET user secrets on `src\AiRecipeGeneration.Api`.
+The adapter appends `/openai/v1/chat/completions` to the endpoint. Never commit
+the API key, database or broker passwords, or OAuth secrets.
+
+See [milestone 4 security operations](./milestone-4-security-operations.md)
+for CI and repository administration requirements.
+
+For running services individually with the separate manual Compose stack, see
+[manual local development](./manual-local-development.md).

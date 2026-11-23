@@ -1,6 +1,6 @@
+using Equipment.Api.Services;
 using Equipment.Data.Exceptions;
 using Equipment.Domain.Exceptions;
-using Equipment.Api.Services;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 

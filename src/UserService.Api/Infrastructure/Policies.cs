@@ -1,3 +1,5 @@
+using UserService.Domain.Services;
+
 namespace UserService.Api.Infrastructure;
 
 public static class Policies
@@ -8,6 +10,15 @@ public static class Policies
 
 public static class ScopeClaims
 {
+    // Ownership needs a usable subject; without one the token is forbidden here instead of failing with a 500 in ICurrentUser.
+    public static bool CanUse(System.Security.Claims.ClaimsPrincipal user, string scope)
+    {
+        var subject = user.FindFirst("sub")?.Value;
+        return !string.IsNullOrWhiteSpace(subject)
+            && subject.Length <= UserProfileRules.SubjectMaxLength
+            && HasScope(user, scope);
+    }
+
     /// <summary>Reads OAuth scope claims and Auth0 RBAC permission claims.</summary>
     public static bool HasScope(System.Security.Claims.ClaimsPrincipal user, string scope) =>
         user.Claims
