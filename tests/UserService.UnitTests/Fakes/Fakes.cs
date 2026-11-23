@@ -95,6 +95,17 @@ public sealed class FakeProfilePictureStorage : IProfilePictureStorage
         Deleted.Add(key);
         return Task.CompletedTask;
     }
+
+    public Task<Stream?> ReadAsync(string key, CancellationToken cancellationToken)
+    {
+        if (!Saved.TryGetValue(key, out var bytes))
+        {
+            return Task.FromResult<Stream?>(null);
+        }
+
+        Stream stream = new MemoryStream([.. bytes], writable: false);
+        return Task.FromResult<Stream?>(stream);
+    }
 }
 
 public sealed class FakeImageIntegrityChecker(bool isValid = true) : IImageIntegrityChecker
