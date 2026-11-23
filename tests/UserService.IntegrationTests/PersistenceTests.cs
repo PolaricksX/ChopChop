@@ -83,6 +83,45 @@ public class PersistenceTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Profile_picture_reference_is_persisted()
+    {
+        var profile = NewProfile();
+        profile.SetOrReplaceProfilePicture("d0ac6315-03d6-4fd0-9481-2090f34cb575.png", "image/png", DateTimeOffset.UtcNow);
+        await SaveAsync(profile);
+
+        using var scope = factory.Services.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var repository = uow.CustomRepository<IUserProfileRepository>();
+        var persisted = await repository.GetOwnedAsync(profile.Id, profile.Subject, false, CancellationToken.None);
+
+        Assert.NotNull(persisted);
+        Assert.Equal("d0ac6315-03d6-4fd0-9481-2090f34cb575.png", persisted.ProfilePictureKey);
+        Assert.Equal("image/png", persisted.ProfilePictureContentType);
+    }
+
+    [Fact]
+    public async Task Concurrent_profile_picture_updates_with_the_same_version_conflict()
+    {
+        var profile = NewProfile();
+        await SaveAsync(profile);
+
+        using var scopeA = factory.Services.CreateScope();
+        using var scopeB = factory.Services.CreateScope();
+        var uowA = scopeA.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var uowB = scopeB.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var reposA = uowA.CustomRepository<IUserProfileRepository>();
+        var reposB = uowB.CustomRepository<IUserProfileRepository>();
+
+        var a = (await reposA.GetOwnedAsync(profile.Id, profile.Subject, true, CancellationToken.None))!;
+        var b = (await reposB.GetOwnedAsync(profile.Id, profile.Subject, true, CancellationToken.None))!;
+        a.SetOrReplaceProfilePicture("e57a8eba-bfb0-40b3-8f85-5532fa5f5fab.jpg", "image/jpeg", DateTimeOffset.UtcNow);
+        b.SetOrReplaceProfilePicture("7a4b8306-f34f-4dfa-978a-723823ac2e77.png", "image/png", DateTimeOffset.UtcNow);
+
+        await uowA.SaveChangesAsync();
+        await Assert.ThrowsAsync<ConflictException>(() => uowB.SaveChangesAsync());
+    }
+
+    [Fact]
     public async Task Idempotency_key_is_unique_per_subject()
     {
         var profile = NewProfile();

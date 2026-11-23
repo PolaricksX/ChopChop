@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Data;
 using UserService.Data.Context;
@@ -13,6 +14,10 @@ public class UnitOfWorkTests
     private static ServiceProvider BuildProvider()
     {
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ProfilePictures:RootPath"] = Path.GetTempPath(),
+        }).Build());
         services.AddUserServiceData(_ => "Server=unused;Database=unused;TrustServerCertificate=True");
         return services.BuildServiceProvider();
     }
@@ -72,6 +77,7 @@ public class UnitOfWorkTests
         var uow = new UnitOfWork(context, new RepositoryProvider(factory));
         var now = DateTimeOffset.UtcNow;
         var profile = UserProfile.Create("sub", "alice", "a@example.com", null, now);
+        profile.SetOrReplaceProfilePicture("e2b2a8a3-3fc4-4f64-93c0-8ce8f956f7aa.jpg", "image/jpeg", now.AddMinutes(1));
 
         await uow.Repository<UserProfile>().AddAsync(profile, CancellationToken.None);
         await uow.Repository<IdempotencyRecord>().AddAsync(IdempotencyRecord.Create("sub", "k", "h", profile.Id, now), CancellationToken.None);
@@ -81,7 +87,9 @@ public class UnitOfWorkTests
 
         Assert.Equal(2, await uow.SaveChangesAsync());
 
-        Assert.Equal(1, await context.Users.AsNoTracking().CountAsync());
+        var persistedProfile = await context.Users.AsNoTracking().SingleAsync();
+        Assert.Equal("e2b2a8a3-3fc4-4f64-93c0-8ce8f956f7aa.jpg", persistedProfile.ProfilePictureKey);
+        Assert.Equal("image/jpeg", persistedProfile.ProfilePictureContentType);
         Assert.Equal(1, await context.IdempotencyRecords.AsNoTracking().CountAsync());
     }
 }
