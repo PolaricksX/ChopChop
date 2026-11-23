@@ -27,6 +27,10 @@ public static class ClaimsPrincipalExtensions
         return userId != Guid.Empty;
     }
 
+    // Scope alone is not enough: ownership needs a usable subject, so a token without one is forbidden at the policy.
+    public static bool CanUse(this ClaimsPrincipal principal, string requiredScope) =>
+        principal.TryGetUserId(out _) && principal.HasScope(requiredScope);
+
     public static bool HasScope(this ClaimsPrincipal principal, string requiredScope) =>
         principal.Claims
             .Where(claim => claim.Type is "scope" or "scp" or "permissions")

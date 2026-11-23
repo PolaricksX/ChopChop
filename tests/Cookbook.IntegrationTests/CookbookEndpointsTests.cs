@@ -153,6 +153,7 @@ public sealed class CookbookAuthenticationTests(ApiFactory factory) : IClassFixt
     [Fact] public async Task Wrong_audience_is_401() => Assert.Equal(HttpStatusCode.Unauthorized, await GetFoldersAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), audience: "another-api")));
     [Fact] public async Task Missing_scope_is_403() => Assert.Equal(HttpStatusCode.Forbidden, await GetFoldersAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), scope: null)));
     [Fact] public async Task Unrelated_scope_is_403() => Assert.Equal(HttpStatusCode.Forbidden, await GetFoldersAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "users.read")));
+    [Fact] public async Task Valid_scope_without_subject_is_403() => Assert.Equal(HttpStatusCode.Forbidden, await GetFoldersAsync(factory.Jwt.Create(null)));
     [Fact] public async Task Required_scope_is_accepted() => Assert.Equal(HttpStatusCode.OK, await GetFoldersAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "cookbook.read")));
 
     [Theory]

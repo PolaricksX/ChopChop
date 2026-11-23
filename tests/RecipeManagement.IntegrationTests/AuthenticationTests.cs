@@ -52,4 +52,20 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
     [Fact] public async Task Missing_scope_is_403() => Assert.Equal(HttpStatusCode.Forbidden, await DraftsAsync(factory.Jwt.Create("user", scope: null)));
     [Fact] public async Task Different_scope_is_403() => Assert.Equal(HttpStatusCode.Forbidden, await DraftsAsync(factory.Jwt.Create("user", scope: "users.read")));
     [Fact] public async Task Required_scope_is_accepted() => Assert.Equal(HttpStatusCode.OK, await DraftsAsync(factory.Jwt.Create(Guid.NewGuid().ToString(), scope: "recipes.read")));
+
+    [Theory]
+    [MemberData(nameof(ProtectedRoutes))]
+    public async Task Every_protected_route_enforces_authentication_scope_direction_and_subject(string method, string url)
+    {
+        var isPublishRoute = url.EndsWith("/publish") || url.EndsWith("/unpublish");
+        // Every scope except the one the route needs, so a policy mapped to the wrong scope fails here.
+        var otherScopes = isPublishRoute ? "recipes.read recipes.write"
+            : method == "GET" ? "recipes.write recipes.publish"
+            : "recipes.read recipes.publish";
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await ProtectedRouteAsync(method, url, null));
+        Assert.Equal(HttpStatusCode.Forbidden, await ProtectedRouteAsync(method, url, factory.Jwt.Create("user", "users.read")));
+        Assert.Equal(HttpStatusCode.Forbidden, await ProtectedRouteAsync(method, url, factory.Jwt.Create("user", otherScopes)));
+        Assert.Equal(HttpStatusCode.Forbidden, await ProtectedRouteAsync(method, url, factory.Jwt.Create(null)));
+    }
 }

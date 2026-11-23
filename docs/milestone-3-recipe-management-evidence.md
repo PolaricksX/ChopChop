@@ -32,7 +32,7 @@ Recipe Management reads the following configuration keys; values, credentials, a
 - `Auth:RequireHttpsMetadata` — whether the authority metadata must use HTTPS.
 - `Auth:ValidAlgorithms` — the allowlisted signing algorithms.
 
-The API validates the JWT signature and signing key, issuer, audience, lifetime and required expiration time. Signed tokens are required, and only configured signing algorithms are accepted. The API also requires the appropriate `scope`, `scp`, or Auth0 `permissions` claim for each protected policy. Authentication failures return `401`; an authenticated token missing the required permission returns `403`.
+The API validates the JWT signature and signing key, issuer, audience, lifetime and required expiration time. Signed tokens are required, and only configured signing algorithms are accepted. The API also requires the appropriate `scope`, `scp`, or Auth0 `permissions` claim for each protected policy, plus a usable `sub` claim (with `iss` when `sub` is not a GUID) because ownership is derived from it. Authentication failures return `401`; an authenticated token missing the required permission or a usable subject returns `403`.
 
 ## Endpoint-to-policy mapping
 
@@ -65,6 +65,8 @@ The Recipe Management integration tests cover these expected outcomes:
 | Wrong token audience | `401 Unauthorized` |
 | Authenticated token without a required recipe scope | `403 Forbidden` |
 | Authenticated token with an unrelated scope | `403 Forbidden` |
+| Authenticated token with a required scope but no usable subject | `403 Forbidden` |
+| Publish/unpublish with `recipes.write` but not `recipes.publish` | `403 Forbidden` |
 | Authenticated token with the required `recipes.read` scope | `200 OK` |
 | Anonymous published list and detail access | `200 OK` |
 | Private draft belonging to another user | `404 Not Found` |
@@ -80,7 +82,7 @@ The Recipe Management integration tests cover these expected outcomes:
 - Event publication and consumer integration, `UserDeleted` handling, idempotency, and rate limiting are out of scope for Milestone 3.
 - Local development uses configured public URLs and development-only infrastructure; production deployments must provide HTTPS and a secured configuration/secret store.
 - The isAiGenerated flag is set by the client (decision 10); it is not verified server-side.
-- Cross-owner tests cover draft retrieval only; command-level ownership and public draft-isolation tests are deferred.
+- Cross-owner tests cover draft retrieval, update, delete, publish, and unpublish (all `404`), and confirm another user's draft is not exposed through the anonymous detail and version routes.
 
 ## Validate
 

@@ -39,6 +39,36 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("POST", "/api/v1/meal-plans")]
+    [InlineData("GET", "/api/v1/meal-plans")]
+    [InlineData("GET", "/api/v1/meal-plans/{plan}")]
+    [InlineData("PUT", "/api/v1/meal-plans/{plan}")]
+    [InlineData("PATCH", "/api/v1/meal-plans/{plan}/status")]
+    [InlineData("DELETE", "/api/v1/meal-plans/{plan}")]
+    [InlineData("GET", "/api/v1/meal-plans/{plan}/meals")]
+    [InlineData("POST", "/api/v1/meal-plans/{plan}/meals")]
+    [InlineData("PUT", "/api/v1/meal-plans/{plan}/meals/{entry}")]
+    [InlineData("PATCH", "/api/v1/meal-plans/{plan}/meals/{entry}/status")]
+    [InlineData("DELETE", "/api/v1/meal-plans/{plan}/meals/{entry}")]
+    public async Task Every_route_enforces_authentication_scope_direction_and_subject(string method, string route)
+    {
+        var url = route.Replace("{plan}", Guid.NewGuid().ToString()).Replace("{entry}", Guid.NewGuid().ToString());
+        var wrongDirectionScope = method == "GET" ? "mealplans.write" : "mealplans.read";
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(method, url, null));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create("user", "recipes.read")));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create("user", wrongDirectionScope)));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create(null)));
+    }
+
+    private async Task<HttpStatusCode> StatusAsync(string method, string url, string? token)
+    {
+        using var request = factory.Request(new HttpMethod(method), url, token);
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
+    }
+
     [Fact]
     public async Task Malformed_expired_wrong_issuer_and_wrong_audience_tokens_are_rejected()
     {

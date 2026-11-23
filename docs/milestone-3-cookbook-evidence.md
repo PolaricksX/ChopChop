@@ -37,16 +37,20 @@ The API validates JWT signature and signing key, issuer, audience, and lifetime 
 
 ## Endpoint-to-policy mapping
 
-| Method | Route | Policy |
-|---|---|---|
-| `POST` | `/api/v1/folders` | `cookbook.write` |
-| `GET` | `/api/v1/folders` | `cookbook.read` |
-| `DELETE` | `/api/v1/folders/{folderId:guid}` | `cookbook.write` |
-| `POST` | `/api/v1/folders/{folderId:guid}/saved-recipes` | `cookbook.write` |
-| `GET` | `/api/v1/folders/{folderId:guid}/saved-recipes` | `cookbook.read` |
-| `DELETE` | `/api/v1/folders/{folderId:guid}/saved-recipes/{recipeId:guid}/{recipeVersion:int}` | `cookbook.write` |
-| `GET` | `/health` | Anonymous |
-| OpenAPI | Development only | Authenticated fallback policy |
+| Method | Route | Policy | Ownership |
+|---|---|---|---|
+| `POST` | `/api/v1/folders` | `cookbook.write` | Owner taken from the token subject |
+| `GET` | `/api/v1/folders` | `cookbook.read` | Only the caller's folders |
+| `DELETE` | `/api/v1/folders/{folderId:guid}` | `cookbook.write` | `404` if the folder is not the caller's |
+| `POST` | `/api/v1/folders/{folderId:guid}/saved-recipes` | `cookbook.write` | `404` if the folder is not the caller's |
+| `GET` | `/api/v1/folders/{folderId:guid}/saved-recipes` | `cookbook.read` | `404` if the folder is not the caller's |
+| `DELETE` | `/api/v1/folders/{folderId:guid}/saved-recipes/{recipeId:guid}/{recipeVersion:int}` | `cookbook.write` | `404` if the folder is not the caller's |
+| `GET` | `/health` | Anonymous | None |
+| OpenAPI | Development only | Authenticated fallback policy | None |
+
+Both policies also require a usable `sub` claim (with `iss` when `sub` is not a
+GUID); a token with the right scope but no usable subject returns `403`. The
+owner is never read from the request body, route, or headers.
 
 ## Test results
 
@@ -64,6 +68,7 @@ The Cookbook integration tests cover these expected outcomes:
 | Wrong token audience | `401 Unauthorized` |
 | Authenticated token without a required Cookbook scope | `403 Forbidden` |
 | Authenticated token with an unrelated scope | `403 Forbidden` |
+| Authenticated token with a required scope but no usable subject | `403 Forbidden` |
 | Authenticated token with `cookbook.read` on read endpoints | `200 OK` |
 | Authenticated token with `cookbook.write` on write endpoints | `201 Created`/`204 No Content` |
 | Anonymous health access | `200 OK` |

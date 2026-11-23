@@ -61,6 +61,30 @@ public sealed class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Equal(HttpStatusCode.OK, readResponse.StatusCode);
     }
 
+    [Theory]
+    [InlineData("POST", "/api/v1/equipment")]
+    [InlineData("GET", "/api/v1/equipment")]
+    [InlineData("PUT", "/api/v1/equipment/{id}")]
+    [InlineData("PUT", "/api/v1/equipment/{id}/availability")]
+    [InlineData("DELETE", "/api/v1/equipment/{id}")]
+    public async Task Every_route_enforces_authentication_scope_direction_and_subject(string method, string route)
+    {
+        var url = route.Replace("{id}", Guid.NewGuid().ToString());
+        var wrongDirectionScope = method == "GET" ? "equipment.write" : "equipment.read";
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(method, url, null));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create("user", "users.read")));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create("user", wrongDirectionScope)));
+        Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync(method, url, factory.Jwt.Create(null)));
+    }
+
+    private async Task<HttpStatusCode> StatusAsync(string method, string url, string? token)
+    {
+        using var request = factory.Request(new HttpMethod(method), url, token);
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
+    }
+
     [Fact]
     public async Task Health_endpoint_is_anonymous_and_checks_the_database()
     {

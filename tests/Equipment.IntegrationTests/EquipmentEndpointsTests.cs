@@ -219,6 +219,35 @@ public sealed class EquipmentEndpointsTests(ApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Non_owner_cannot_change_availability_or_delete_an_equipment_item()
+    {
+        var id = Guid.NewGuid();
+        await factory.SeedAsync(new EquipmentItem(
+            id,
+            "actual-owner",
+            "Private knife",
+            EquipmentType.Utensils,
+            1,
+            DateTimeOffset.UtcNow));
+        var token = factory.Jwt.Create("different-owner", "equipment.write");
+
+        using var availability = factory.Request(
+            HttpMethod.Put,
+            $"/api/v1/equipment/{id}/availability",
+            token,
+            new { isAvailable = false });
+        availability.Headers.TryAddWithoutValidation("If-Match", "\"AQIDBAUGBwg=\"");
+        using var delete = factory.Request(HttpMethod.Delete, $"/api/v1/equipment/{id}", token);
+        delete.Headers.TryAddWithoutValidation("If-Match", "\"AQIDBAUGBwg=\"");
+
+        using var availabilityResponse = await client.SendAsync(availability);
+        using var deleteResponse = await client.SendAsync(delete);
+
+        Assert.Equal(HttpStatusCode.NotFound, availabilityResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deleteResponse.StatusCode);
+    }
+
     private sealed record EquipmentPageResponse(
         IReadOnlyList<EquipmentItemResponse> Items,
         int Page,

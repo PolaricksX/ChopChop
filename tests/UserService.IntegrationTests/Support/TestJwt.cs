@@ -18,7 +18,7 @@ public sealed class TestJwt : IDisposable
 
     /// <param name="lifetime">Time until expiry; a negative value produces an already-expired token.</param>
     public string Create(
-        string subject,
+        string? subject,
         string? scope = "users.read users.write",
         string issuer = Issuer,
         string audience = Audience,
@@ -27,7 +27,12 @@ public sealed class TestJwt : IDisposable
     {
         var key = new RsaSecurityKey(signWithUnknownKey ? otherRsa : rsa) { KeyId = "test-key" };
         var expires = DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(5));
-        var claims = new List<Claim> { new("sub", subject) };
+        var claims = new List<Claim>();
+        if (subject is not null)
+        {
+            claims.Add(new Claim("sub", subject));
+        }
+
         if (scope is not null)
         {
             claims.Add(new Claim("scope", scope));

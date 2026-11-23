@@ -40,8 +40,8 @@ builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build())
-    .AddPolicy(Policies.CookbookRead, policy => policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.CookbookRead)))
-    .AddPolicy(Policies.CookbookWrite, policy => policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.HasScope(context.User, Policies.CookbookWrite)));
+    .AddPolicy(Policies.CookbookRead, policy => policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.CookbookRead)))
+    .AddPolicy(Policies.CookbookWrite, policy => policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.CookbookWrite)));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddHealthChecks().AddCheck<CookbookDatabaseHealthCheck>("cookbook-database");
 builder.Services.AddOpenApi();
