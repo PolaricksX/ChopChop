@@ -17,7 +17,7 @@ public class UserProfileServiceTests
     public UserProfileServiceTests()
     {
         var unitOfWork = new UnitOfWork(TestDbContext.CreateInMemory(), new RepositoryProvider(factory));
-        service = new UserProfileService(unitOfWork, new FixedTimeProvider(Now), NullLogger<UserProfileService>.Instance);
+        service = new UserProfileService(unitOfWork, new FakeProfilePictureStorage(), new FakeImageIntegrityChecker(), new FixedTimeProvider(Now), NullLogger<UserProfileService>.Instance);
     }
 
     private static CreateUserRequest Request(string username = "alice", string email = "alice@example.com") =>

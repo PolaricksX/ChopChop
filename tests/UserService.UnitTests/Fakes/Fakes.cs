@@ -1,8 +1,11 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using UserService.Data.Context;
+using UserService.Data.Images;
 using UserService.Data.Repositories;
+using UserService.Data.Storage;
 using UserService.Domain.Entities;
+using UserService.Domain.Services;
 
 namespace UserService.UnitTests.Fakes;
 
@@ -65,4 +68,30 @@ public static class TestDbContext
         new(new DbContextOptionsBuilder<UserServiceDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
+}
+
+public sealed class FakeProfilePictureStorage : IProfilePictureStorage
+{
+    public Dictionary<string, byte[]> Saved { get; } = [];
+    public List<string> Deleted { get; } = [];
+
+    public Task<string> SaveAsync(byte[] bytes, ProfilePictureFormat format, CancellationToken cancellationToken)
+    {
+        var key = $"{Guid.NewGuid()}.{format.ToString().ToLowerInvariant()}";
+        Saved[key] = bytes;
+        return Task.FromResult(key);
+    }
+
+    public Task DeleteAsync(string key, CancellationToken cancellationToken)
+    {
+        Saved.Remove(key);
+        Deleted.Add(key);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeImageIntegrityChecker(bool isValid = true) : IImageIntegrityChecker
+{
+    public Task<bool> IsValidImageAsync(byte[] imageBytes, CancellationToken cancellationToken) =>
+        Task.FromResult(isValid);
 }
