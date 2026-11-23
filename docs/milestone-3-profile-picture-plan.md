@@ -45,8 +45,10 @@ These decisions are treated as fixed and drive all implementation steps:
 5. Size: max 1 MB; empty file rejected.
 6. Content type: detect from signature and reject if declared type is disallowed
    or mismatched vs detected format.
-7. Integrity: decode with SixLabors.ImageSharp (latest stable, centrally
-   managed package version). Record license + vulnerability review.
+7. Integrity: decode with SkiaSharp (latest stable, MIT license, centrally
+   managed package version). SixLabors.SkiaSharp was rejected during
+   implementation: 3.1.x has unpatched high-severity advisories
+   (NuGet audit NU1903) and 4.x requires a Six Labors license key at build time.
 8. Atomicity: full validation before write; write new file then persist DB
    reference; delete new file if DB save fails; delete old file only after
    successful save.
@@ -133,9 +135,9 @@ These decisions are treated as fixed and drive all implementation steps:
     absolute path policy as implemented).
 - `src/UserService.Data/Images/IImageIntegrityChecker.cs`
   - Integrity-check boundary used by API orchestration.
-- `src/UserService.Data/Images/ImageSharpImageIntegrityChecker.cs`
-  - ImageSharp-backed implementation that decodes/loads image bytes to verify
-    integrity without leaking ImageSharp dependency into Domain.
+- `src/UserService.Data/Images/SkiaSharpImageIntegrityChecker.cs`
+  - SkiaSharp-backed implementation that decodes/loads image bytes to verify
+    integrity without leaking SkiaSharp dependency into Domain.
 
 ### Files to change
 
@@ -207,7 +209,7 @@ These decisions are treated as fixed and drive all implementation steps:
   - Service uses Domain rules outcomes instead of duplicating validation logic.
   - Corrupt/undecodable image rejected.
   - Integrity-check interface is faked in tests (Domain does not reference
-    ImageSharp).
+    SkiaSharp).
   - Save failure triggers new-file rollback.
   - Old file deleted only after successful DB save.
   - Old-file delete failure after a successful save logs a warning and still succeeds.
@@ -257,7 +259,7 @@ These decisions are treated as fixed and drive all implementation steps:
 ## Ordered implementation checklist (with layer agent ownership)
 
 1. **Dependency decision record and package baseline** — Agent: default Agent mode with the r-piv skill
-   - Add ImageSharp dependency plan note (latest stable, centrally managed).
+   - Add SkiaSharp dependency plan note (latest stable, centrally managed).
    - Record required license review + vulnerability scan evidence targets.
 2. **Domain model extension** — Agent: Domain Developer
    - Add profile picture reference fields and set/replace mutation methods to
@@ -266,7 +268,7 @@ These decisions are treated as fixed and drive all implementation steps:
 3. **Data schema + storage abstraction** — Agent: Data Access (UOW/Repositories/EF) Layer
    - Add migration, EF mapping updates, and filesystem storage implementation
      behind `IProfilePictureStorage`.
-   - Add `IImageIntegrityChecker` with ImageSharp implementation and DI
+   - Add `IImageIntegrityChecker` with SkiaSharp implementation and DI
      registration.
 4. **API endpoint + orchestration** — Agent: API and Services Developer
    - Add upload endpoint, validation, exception mapping, antiforgery disable,
@@ -314,7 +316,7 @@ Planned integration assertions for `PUT /api/v1/users/{id}/profile-picture`:
 
 ## Dependency, license, and security evidence plan
 
-Because ImageSharp is newly introduced for cross-platform image decoding:
+Because SkiaSharp is newly introduced for cross-platform image decoding:
 
 - Record chosen version in central package management.
 - Record license review result (package + version + acceptable license).
@@ -346,7 +348,7 @@ Create and maintain `docs/milestone-3-profile-picture-evidence.md` with:
 2. File list grouped by Domain/Data/API/Tests/Docs.
 3. Validation command outputs (exact success/failure snippets).
 4. Acceptance-criteria checklist with links to test names.
-5. ImageSharp dependency review notes (license + vulnerability scan result).
+5. SkiaSharp dependency review notes (license + vulnerability scan result).
 6. Known limitations (retrieval/UI separate issue, no upload-specific rate
    limiting, no virus scanner available).
 
