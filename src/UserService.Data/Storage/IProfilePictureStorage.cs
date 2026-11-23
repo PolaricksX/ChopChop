@@ -6,5 +6,7 @@ public interface IProfilePictureStorage
 {
     Task<string> SaveAsync(byte[] bytes, ProfilePictureFormat format, CancellationToken cancellationToken);
 
+    Task<Stream?> ReadAsync(string key, CancellationToken cancellationToken);
+
     Task DeleteAsync(string key, CancellationToken cancellationToken);
 }

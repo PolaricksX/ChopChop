@@ -30,6 +30,15 @@ public static class UserEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapGet("/me", GetCurrentAsync)
+            .RequireAuthorization(Policies.UsersRead)
+            .WithName("GetCurrentUser")
+            .WithSummary("Gets the caller's profile. Requires the users.read scope; returns 404 when no profile exists.")
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapPut("/{id:guid}", UpdateAsync)
             .RequireAuthorization(Policies.UsersWrite)
             .WithName("UpdateUser")
@@ -68,6 +77,16 @@ public static class UserEndpoints
             .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
             .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
 
+        group.MapGet("/{id:guid}/profile-picture", GetProfilePictureAsync)
+            .RequireAuthorization(Policies.UsersRead)
+            .WithName("GetUserProfilePicture")
+            .WithSummary("Gets the caller's profile picture. Requires the users.read scope; other users and missing pictures return 404.")
+            .Produces(StatusCodes.Status200OK, contentType: "image/jpeg")
+            .Produces(StatusCodes.Status200OK, contentType: "image/png")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
     }
 
@@ -90,6 +109,9 @@ public static class UserEndpoints
 
     private static async Task<IResult> GetAsync(Guid id, ICurrentUser user, UserProfileService users, CancellationToken token) =>
         Results.Ok((await users.GetAsync(user.Id, id, token)).ToResponse());
+
+    private static async Task<IResult> GetCurrentAsync(ICurrentUser user, UserProfileService users, CancellationToken token) =>
+        Results.Ok((await users.GetCurrentAsync(user.Id, token)).ToResponse());
 
     private static async Task<IResult> UpdateAsync(
         Guid id,
@@ -134,5 +156,19 @@ public static class UserEndpoints
 
         await users.ReplaceProfilePictureAsync(user.Id, id, file, token);
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetProfilePictureAsync(
+        Guid id,
+        HttpContext httpContext,
+        ICurrentUser user,
+        UserProfileService users,
+        CancellationToken token)
+    {
+        var picture = await users.GetProfilePictureAsync(user.Id, id, token);
+        httpContext.Response.RegisterForDispose(picture.Stream);
+        httpContext.Response.Headers.CacheControl = "private, no-store";
+        httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return Results.File(picture.Stream, contentType: picture.ContentType, enableRangeProcessing: false);
     }
 }

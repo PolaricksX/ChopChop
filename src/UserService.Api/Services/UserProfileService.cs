@@ -18,6 +18,8 @@ public sealed class UserProfileService(
     TimeProvider clock,
     ILogger<UserProfileService> logger)
 {
+    public sealed record ProfilePictureReadResult(Stream Stream, string ContentType);
+
     public async Task<UserProfile> CreateAsync(
         string subject,
         string idempotencyKey,
@@ -61,6 +63,17 @@ public sealed class UserProfileService(
     public async Task<UserProfile> GetAsync(string subject, Guid id, CancellationToken token) =>
         await unitOfWork.CustomRepository<IUserProfileRepository>().GetOwnedAsync(id, subject, forUpdate: false, token)
         ?? throw new UserNotFoundException();
+
+    public async Task<UserProfile> GetCurrentAsync(string subject, CancellationToken token)
+    {
+        var profile = await unitOfWork.CustomRepository<IUserProfileRepository>().GetBySubjectAsync(subject, token);
+        if (profile is null || profile.IsDeleted)
+        {
+            throw new UserNotFoundException();
+        }
+
+        return profile;
+    }
 
     public async Task<UserProfile> UpdateAsync(string subject, Guid id, UpdateUserRequest request, CancellationToken token)
     {
@@ -142,6 +155,28 @@ public sealed class UserProfileService(
         {
             logger.LogWarning(deleteException, "Failed to delete previous profile picture after successful replacement for user {UserId}", profile.Id);
         }
+    }
+
+    public async Task<ProfilePictureReadResult> GetProfilePictureAsync(string subject, Guid id, CancellationToken token)
+    {
+        var profile = await unitOfWork.CustomRepository<IUserProfileRepository>()
+            .GetOwnedAsync(id, subject, forUpdate: false, token)
+            ?? throw new UserNotFoundException();
+
+        if (string.IsNullOrWhiteSpace(profile.ProfilePictureKey)
+            || string.IsNullOrWhiteSpace(profile.ProfilePictureContentType))
+        {
+            throw new UserNotFoundException();
+        }
+
+        var stream = await profilePictureStorage.ReadAsync(profile.ProfilePictureKey, token);
+        if (stream is null)
+        {
+            logger.LogWarning("Profile picture file is missing for user {UserId}", profile.Id);
+            throw new UserNotFoundException();
+        }
+
+        return new ProfilePictureReadResult(stream, profile.ProfilePictureContentType);
     }
 
     // Friendly pre-check; the unique indexes remain the source of truth under concurrency.

@@ -4,7 +4,7 @@ export type TokenOptions = {
 }
 
 type TokenGetter = (options: TokenOptions) => Promise<string | undefined>
-export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner' | 'pantry' | 'equipment'
+export type ApiName = 'ai' | 'review' | 'recipes' | 'cookbook' | 'mealPlanner' | 'pantry' | 'equipment' | 'user'
 export type ApiPermission =
   | 'recipe-generations.create'
   | 'recipe-generations.read'
@@ -24,6 +24,8 @@ export type ApiPermission =
   | 'pantry.write'
   | 'equipment.read'
   | 'equipment.write'
+  | 'users.read'
+  | 'users.write'
 export type PantryPermission = Extract<ApiPermission, 'pantry.read' | 'pantry.write'>
 export type EquipmentPermission = Extract<ApiPermission, 'equipment.read' | 'equipment.write'>
 
@@ -86,6 +88,10 @@ export async function getApiAccessToken(
       audience: import.meta.env.VITE_AUTH0_EQUIPMENT_AUDIENCE,
       permissions: ['equipment.read', 'equipment.write'],
     },
+    user: {
+      audience: import.meta.env.VITE_AUTH0_USER_SERVICE_AUDIENCE,
+      permissions: ['users.read', 'users.write'],
+    },
   }
   const { audience, permissions } = apiAuth[api]
   if (!permissions.includes(permission)) {
@@ -103,6 +109,7 @@ export async function getApiAccessToken(
       mealPlanner: 'VITE_AUTH0_MEAL_PLANNER_AUDIENCE',
       pantry: 'VITE_AUTH0_PANTRY_AUDIENCE',
       equipment: 'VITE_AUTH0_EQUIPMENT_AUDIENCE',
+      user: 'VITE_AUTH0_USER_SERVICE_AUDIENCE',
     }[api]
     throw new Error(`API access is not configured. Set ${envVariable} in .env.local.`)
   }

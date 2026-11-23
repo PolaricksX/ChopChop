@@ -77,11 +77,30 @@ User Service stores uploaded profile pictures on the local filesystem. Set an
 absolute storage folder outside the repository and any web root as a user
 secret. `appsettings.Development.json` contains only a `<your-user>`
 placeholder, which is not a valid Windows path, so uploads fail until this is
-set. Then apply the User Service migrations, including `AddUserProfilePicture`:
+set.
+
+To use User Service from the browser client, set these user secrets on
+`src\UserService.Api`:
 
 ```powershell
+dotnet user-secrets set "Auth:Authority" "https://<your-auth0-domain>/" --project src\UserService.Api
+dotnet user-secrets set "Auth:Audience" "https://api.chopchop.local/user-service" --project src\UserService.Api
+dotnet user-secrets set "Cors:AllowedOrigins:0" "http://localhost:5173" --project src\UserService.Api
 dotnet user-secrets set "ProfilePictures:RootPath" "$env:LOCALAPPDATA\ChopChop\UserService\ProfilePictures" --project src\UserService.Api
-dotnet ef database update --project src\UserService.Data --startup-project src\UserService.Api --context UserServiceDbContext
+```
+
+In `src\ChopChop.Client`, copy `.env.example` to `.env.local` and set the
+User Service values:
+
+```dotenv
+VITE_USER_SERVICE_API_URL=http://localhost:5199
+VITE_AUTH0_USER_SERVICE_AUDIENCE=https://api.chopchop.local/user-service
+```
+
+Then apply the User Service migrations, including `AddUserProfilePicture`:
+
+```powershell
+dotnet ef database update --project src\UserService.Data --startup-project src\UserService.Api --context UserServiceDbContext --connection "Server=(localdb)\MSSQLLocalDB;Database=ChopChopUserService;Trusted_Connection=True;TrustServerCertificate=True"
 ```
 
 Uploads use `PUT /api/v1/users/{id}/profile-picture` (multipart/form-data,

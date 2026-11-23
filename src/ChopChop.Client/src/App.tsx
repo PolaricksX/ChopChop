@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import {
@@ -24,6 +24,7 @@ import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
+import { ProfilePanel } from './profile/ProfilePanel'
 import type { EquipmentPermission } from './equipment/api'
 import type { MealPlannerPermission } from './meal-planning/api'
 import { clearRedirectNavigation, getRedirectNavigation } from './redirectNavigation'
@@ -99,7 +100,12 @@ function AppContent() {
   const [busy, setBusy] = useState(false)
   const [authorizationRequests, setAuthorizationRequests] = useState<TokenOptions['authorizationParams'][]>([])
   const [authorizationBusy, setAuthorizationBusy] = useState(false)
+  const profileSignOutCleanupRef = useRef<(() => void) | null>(null)
   const authorizationRequest = authorizationRequests[0]
+
+  const registerProfileSignOutCleanup = useCallback((cleanup: (() => void) | null) => {
+    profileSignOutCleanupRef.current = cleanup
+  }, [])
 
   const tokenGetter = useCallback((options: TokenOptions) =>
     getTokenOrReauthenticate(options, getAccessTokenSilently, async (authorizationParams) => {
@@ -188,7 +194,9 @@ function AppContent() {
   }
 
   const signOut = async () => {
+    setError('')
     try {
+      profileSignOutCleanupRef.current?.()
       await logout({ logoutParams: { returnTo: `${window.location.origin}/` } })
     } catch (logoutError) {
       setError(errorMessage(logoutError))
@@ -331,6 +339,7 @@ function AppContent() {
         <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
         <button className={activePanel === 'pantry' ? 'tab active' : 'tab'} onClick={() => setActivePanel('pantry')}>My Pantry</button>
         <button className={activePanel === 'equipment' ? 'tab active' : 'tab'} onClick={() => setActivePanel('equipment')}>Equipment</button>
+        <button className={activePanel === 'profile' ? 'tab active' : 'tab'} onClick={() => setActivePanel('profile')}>Profile</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
       </nav>
@@ -384,6 +393,7 @@ function AppContent() {
           <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
         </Suspense>
       )}
+      {activePanel === 'profile' && <ProfilePanel registerSignOutCleanup={registerProfileSignOutCleanup} />}
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">
           <div className="panel-heading">

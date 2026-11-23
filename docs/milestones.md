@@ -3,6 +3,7 @@
 The current assigned work is:
 
 - [#88 — User and Profile: profile picture upload, validation, and storage](https://github.com/PolaricksX/ChopChop/issues/88)
+- [#94 — User and Profile: cross-device profile retrieval and private picture access](https://github.com/PolaricksX/ChopChop/issues/94)
 
 Each assignment is limited to its own independently runnable services and
 their shared client/infrastructure support. Other service ownership remains
@@ -14,6 +15,13 @@ The implementation plan and approved choices are recorded in
 [milestone-4-profile-picture-plan.md](milestone-4-profile-picture-plan.md).
 The implementation evidence is tracked in
 [milestone-4-profile-picture-evidence.md](milestone-4-profile-picture-evidence.md).
+
+### User and Profile — profile retrieval and private picture access (#94)
+
+The implementation plan and approved choices are recorded in
+[milestone-4-profile-retrieval-plan.md](milestone-4-profile-retrieval-plan.md).
+The implementation evidence is tracked in
+[milestone-4-profile-retrieval-evidence.md](milestone-4-profile-retrieval-evidence.md).
 
 Local startup steps for all services are in
 [local-development.md](local-development.md).

@@ -29,18 +29,34 @@ public sealed partial class LocalProfilePictureStorage(IOptions<ProfilePictureSt
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!KeyPattern().IsMatch(key))
-        {
-            throw new ArgumentException("Profile picture key must be a GUID file name ending in .jpg or .png.", nameof(key));
-        }
-
-        var path = ResolvePath(key);
+        var path = ResolveValidatedPath(key);
         if (File.Exists(path))
         {
             File.Delete(path);
         }
 
         return Task.CompletedTask;
+    }
+
+    public Task<Stream?> ReadAsync(string key, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var path = ResolveValidatedPath(key);
+        if (!File.Exists(path))
+        {
+            return Task.FromResult<Stream?>(null);
+        }
+
+        Stream stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.Asynchronous);
+
+        return Task.FromResult<Stream?>(stream);
     }
 
     private static string NormalizeRoot(string configuredRootPath)
@@ -71,6 +87,16 @@ public sealed partial class LocalProfilePictureStorage(IOptions<ProfilePictureSt
         }
 
         return fullPath;
+    }
+
+    private string ResolveValidatedPath(string key)
+    {
+        if (!KeyPattern().IsMatch(key))
+        {
+            throw new ArgumentException("Profile picture key must be a GUID file name ending in .jpg or .png.", nameof(key));
+        }
+
+        return ResolvePath(key);
     }
 
     [GeneratedRegex(@"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.(jpg|png)$", RegexOptions.CultureInvariant)]
