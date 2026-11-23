@@ -45,6 +45,8 @@ The API validates the JWT signature and signing key, issuer, audience, lifetime 
 | `DELETE` | `/api/v1/recipes/{recipeId}/draft` | `recipes.write` |
 | `POST` | `/api/v1/recipes/{recipeId}/publish` | `recipes.publish` |
 | `POST` | `/api/v1/recipes/{recipeId}/unpublish` | `recipes.publish` |
+| `POST` | `/api/v1/admin/recipes/{recipeId}/unpublish` | `recipes.admin` (any recipe; owner may republish) |
+| `DELETE` | `/api/v1/admin/recipes/{recipeId}` | `recipes.admin` (any recipe; permanent) |
 | `GET` | `/api/v1/recipes/{recipeId}/versions/{version}` | Anonymous |
 | `GET` | `/api/v1/recipes/{recipeId}` | Anonymous |
 | `GET` | `/api/v1/recipes` | Anonymous |

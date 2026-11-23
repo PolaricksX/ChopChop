@@ -72,12 +72,40 @@ dotnet run --project tools\ChopChop.LocalLauncher -- --local-auth
 |---|---|---|
 | AI Recipe Generation | `https://api.chopchop.local/ai-recipe-generation` | `recipe-generations.create`, `recipe-generations.read`, `recipe-generations.confirm` |
 | Interactive Review | `https://api.chopchop.local/interactive-review` | `reviews.create`, `reviews.read`, `reviews.write`, `reviews.moderate` |
-| Recipe Management | `https://api.chopchop.local/recipe-management` | `recipes.read`, `recipes.write`, `recipes.publish` |
+| Recipe Management | `https://api.chopchop.local/recipe-management` | `recipes.read`, `recipes.write`, `recipes.publish`, `recipes.admin` |
 | Cookbook | `https://api.chopchop.local/cookbook` | `cookbook.read`, `cookbook.write` |
 | Meal Planner | `https://api.chopchop.local/meal-planner` | `mealplans.read`, `mealplans.write` |
 | Pantry | `https://api.chopchop.local/pantry` | `pantry.read`, `pantry.write` |
 | Equipment | `https://api.chopchop.local/equipment` | `equipment.read`, `equipment.write` |
-| User Service | `https://api.chopchop.local/user-service` | `users.read`, `users.write` |
+| User Service | `https://api.chopchop.local/user-service` | `users.read`, `users.write`, `users.admin` |
+
+Create these Auth0 roles ([ADR 0008](./adr/0008-admin-and-pro-chef-roles.md)):
+
+| Role | Permissions to assign |
+|---|---|
+| Pro Chef | `recipe-generations.create`, `recipe-generations.confirm` (AI Recipe Generation API) |
+| Admin | `reviews.moderate` (Interactive Review), `users.admin` (User Service), `recipes.admin` (Recipe Management) |
+
+Give every signed-in user the ordinary read/write permissions through a base or
+default role. Grant `reviews.moderate`, `users.admin`, `recipes.admin`, and the
+generation create/confirm permissions only through the roles above, and never
+as a scope the browser client requests on its own.
+
+### Sign-up role choice
+
+The sign-up form offers **User** or **Pro Chef** (never Admin). The client sends
+the choice as the `requested_role` authorize parameter. The Post-Login Action
+[`infra/auth0/actions/assign-signup-role.js`](../infra/auth0/actions/assign-signup-role.js)
+checks it on the first login (`logins_count === 1`) and assigns the matching role
+through the Management API. Only the allowlist in that file decides which choices
+are honored; change the rules there. Role IDs and the Management API client
+secrets live in Action secrets (`PRO_CHEF_ROLE_ID`, `domain`, `clientId`,
+`clientSecret`). The Management API client needs `update:users` and `read:roles`
+and is never given to the browser client. Verify in a tenant that
+`event.request.query` contains `requested_role` before relying on it.
+
+The Pro Chef sign-up option is open to anyone until the criteria change, so
+generation access is not yet gated by a real eligibility check.
 
 The APIs use RS256 and the Auth0 tenant as their issuer/authority. Do not use
 the Auth0 Management API audience or grant Management API permissions to the

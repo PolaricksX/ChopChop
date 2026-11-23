@@ -6,7 +6,7 @@ using RecipeManagement.Domain.Exceptions;
 
 namespace RecipeManagement.Api.Services;
 
-public sealed class RecipeApplicationService(IUnitOfWork unitOfWork, TimeProvider timeProvider)
+public sealed class RecipeApplicationService(IUnitOfWork unitOfWork, TimeProvider timeProvider, ILogger<RecipeApplicationService> logger)
 {
     public async Task<DraftRecipeResponse> CreateDraftAsync(Guid ownerId, CreateRecipeRequest request, CancellationToken ct)
     {
@@ -66,6 +66,25 @@ public sealed class RecipeApplicationService(IUnitOfWork unitOfWork, TimeProvide
         var recipe = await unitOfWork.CustomRepository<IRecipeQueries>().GetOwnedForUpdateAsync(ownerId, recipeId, ct)
             ?? throw new KeyNotFoundException("Recipe was not found.");
         recipe.Unpublish(timeProvider.GetUtcNow()); await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    // Takedown: an unpublished recipe can still be republished by its owner, so use removal for a permanent decision.
+    public async Task UnpublishAsAdminAsync(Guid adminId, Guid recipeId, CancellationToken ct)
+    {
+        var recipe = await unitOfWork.CustomRepository<IRecipeQueries>().GetForUpdateAsync(recipeId, ct)
+            ?? throw new KeyNotFoundException("Recipe was not found.");
+        recipe.Unpublish(timeProvider.GetUtcNow());
+        await unitOfWork.SaveChangesAsync(ct);
+        logger.LogInformation("Administrator {AdminId} unpublished recipe {RecipeId}", adminId, recipeId);
+    }
+
+    public async Task RemoveAsAdminAsync(Guid adminId, Guid recipeId, CancellationToken ct)
+    {
+        var recipe = await unitOfWork.CustomRepository<IRecipeQueries>().GetForUpdateAsync(recipeId, ct)
+            ?? throw new KeyNotFoundException("Recipe was not found.");
+        unitOfWork.Repository<Recipe>().Remove(recipe);
+        await unitOfWork.SaveChangesAsync(ct);
+        logger.LogInformation("Administrator {AdminId} removed recipe {RecipeId}", adminId, recipeId);
     }
 
     public async Task<PublishedRecipeResponse?> GetPublishedAsync(Guid recipeId, CancellationToken ct) { var r = await unitOfWork.CustomRepository<IRecipeQueries>().GetPublishedAsync(recipeId, ct); return r is null ? null : r.ToPublishedResponse(r.Published!); }

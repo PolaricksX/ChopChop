@@ -202,6 +202,34 @@ public class UserEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Admin_can_read_and_disable_any_profile_but_a_normal_user_cannot()
+    {
+        var ownerCaller = NewCaller();
+        var owner = await CreateUserAsync(ownerCaller);
+        var admin = new Caller(Guid.NewGuid().ToString(), factory.Jwt.Create(Guid.NewGuid().ToString(), "users.admin"));
+        var normalUser = NewCaller();
+
+        using var normalRead = await SendAsync(normalUser, HttpMethod.Get, $"/api/v1/admin/users/{owner.Id}");
+        using var normalDisable = await SendAsync(normalUser, HttpMethod.Delete, $"/api/v1/admin/users/{owner.Id}");
+        using var adminRead = await SendAsync(admin, HttpMethod.Get, $"/api/v1/admin/users/{owner.Id}");
+        using var unknown = await SendAsync(admin, HttpMethod.Get, $"/api/v1/admin/users/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, normalRead.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, normalDisable.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, adminRead.StatusCode);
+        Assert.Equal(owner.Id, (await adminRead.Content.ReadFromJsonAsync<UserResponse>())!.Id);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+
+        using var disable = await SendAsync(admin, HttpMethod.Delete, $"/api/v1/admin/users/{owner.Id}");
+        using var ownerAfter = await SendAsync(ownerCaller, HttpMethod.Get, $"{Users}/{owner.Id}");
+        using var adminAfter = await SendAsync(admin, HttpMethod.Get, $"/api/v1/admin/users/{owner.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, disable.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, ownerAfter.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, adminAfter.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_me_returns_the_callers_profile()
     {
         var caller = NewCaller();

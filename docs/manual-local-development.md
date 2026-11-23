@@ -17,9 +17,13 @@ docker compose -f docker-compose.yml up -d
 
 SQL Server is exposed on port 1433, RabbitMQ on 5672 (management UI 15672),
 and Keycloak on 8080. The imported Keycloak realm includes the `chopchop-web`
-client and `review-moderator` role. Create a local user through realm
-registration and assign the moderator role in Keycloak only when testing
-moderation. The browser client uses Auth0, so its tokens will not work with
+client and the `review-moderator`, `admin`, and `pro-chef` roles
+([ADR 0008](./adr/0008-admin-and-pro-chef-roles.md)); the realm emits a role's
+permissions in the access token `permissions` claim. An existing local realm is
+not updated by re-importing: add the roles and the "Realm roles as permissions"
+mapper manually or recreate the realm. Create a local user through realm
+registration and assign a role in Keycloak only when testing it. The browser
+client uses Auth0, so its tokens will not work with
 APIs configured for Keycloak; configure the APIs for Auth0 to use that client.
 
 In the shell used for migrations, set the Development environment and configure
@@ -114,7 +118,9 @@ each API's `Auth:Authority` and its own `Auth:Audience` using local user
 secrets. The audience must match the corresponding client setting. Use
 separate RS256 resource servers, enable RBAC and permissions in access tokens,
 and grant only the permissions needed by each role. In particular,
-`reviews.moderate` is reserved for moderators; see the Reviews caveat in the
+`reviews.moderate`, `users.admin`, and `recipes.admin` are reserved for the Admin
+role (and `reviews.moderate` also for moderators); see
+[ADR 0008](./adr/0008-admin-and-pro-chef-roles.md) and the Reviews caveat in the
 [classmate Auth0 guide](./auth0-classmate-setup.md).
 
 Do not grant the SPA Auth0 Management API permissions or put an OAuth client

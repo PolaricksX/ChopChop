@@ -102,6 +102,27 @@ public sealed class UserProfileService(
         logger.LogInformation("User profile {UserId} deleted", id);
     }
 
+    public async Task<UserProfile> GetAsAdminAsync(string adminSubject, Guid id, CancellationToken token)
+    {
+        var profile = await unitOfWork.CustomRepository<IUserProfileRepository>().GetByIdAsync(id, forUpdate: false, token)
+            ?? throw new UserNotFoundException();
+
+        logger.LogInformation("Administrator {AdminSubject} read user profile {UserId}", adminSubject, id);
+        return profile;
+    }
+
+    // "Disable" is the existing soft delete: the profile disappears and its unique values are freed.
+    public async Task DisableAsAdminAsync(string adminSubject, Guid id, CancellationToken token)
+    {
+        var profile = await unitOfWork.CustomRepository<IUserProfileRepository>().GetByIdAsync(id, forUpdate: true, token)
+            ?? throw new UserNotFoundException();
+
+        profile.Delete(clock.GetUtcNow());
+        await unitOfWork.SaveChangesAsync(token);
+
+        logger.LogInformation("Administrator {AdminSubject} disabled user profile {UserId}", adminSubject, id);
+    }
+
     public async Task ReplaceProfilePictureAsync(string subject, Guid id, IFormFile file, CancellationToken token)
     {
         var users = unitOfWork.CustomRepository<IUserProfileRepository>();

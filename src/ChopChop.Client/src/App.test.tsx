@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { getApiAccessToken } from './auth'
@@ -122,8 +122,25 @@ describe('App authentication gate', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
 
     expect(authState.loginWithRedirect).toHaveBeenCalledWith({
-      authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup' },
+      authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup', requested_role: 'user' },
     })
+  })
+
+  it('sends the chosen Pro Chef account type with Auth0 Universal Signup', async () => {
+    render(<App />)
+    fireEvent.change(await screen.findByLabelText('Account type'), { target: { value: 'pro-chef' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }))
+
+    expect(authState.loginWithRedirect).toHaveBeenCalledWith({
+      authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup', requested_role: 'pro-chef' },
+    })
+  })
+
+  it('does not offer Admin as a sign-up account type', async () => {
+    render(<App />)
+    const select = await screen.findByLabelText('Account type')
+
+    expect(within(select).queryByRole('option', { name: 'Admin' })).not.toBeInTheDocument()
   })
 
   it('opens the app without Auth0 when local development auth is enabled', async () => {

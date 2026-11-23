@@ -46,6 +46,13 @@ const PantryTab = lazy(() =>
   })),
 )
 
+// Admin is never self-selected; an administrator grants it in Auth0.
+const signUpRoles = [
+  { value: 'user', label: 'User' },
+  { value: 'pro-chef', label: 'Pro Chef' },
+] as const
+type SignUpRole = (typeof signUpRoles)[number]['value']
+
 function App() {
   const { isLoading } = useAuth0()
   if (isLoading && !isDevelopmentAuthEnabled()) {
@@ -100,6 +107,7 @@ function AppContent() {
   const [busy, setBusy] = useState(false)
   const [authorizationRequests, setAuthorizationRequests] = useState<TokenOptions['authorizationParams'][]>([])
   const [authorizationBusy, setAuthorizationBusy] = useState(false)
+  const [signUpRole, setSignUpRole] = useState<SignUpRole>('user')
   const profileSignOutCleanupRef = useRef<(() => void) | null>(null)
   const authorizationRequest = authorizationRequests[0]
 
@@ -187,7 +195,9 @@ function AppContent() {
   const signUp = async () => {
     setError('')
     try {
-      await loginWithRedirect({ authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup' } })
+      await loginWithRedirect({
+        authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup', requested_role: signUpRole },
+      })
     } catch (loginError) {
       setError(errorMessage(loginError))
     }
@@ -308,6 +318,10 @@ function AppContent() {
         <p className="lede">Create a recipe draft, share thoughtful feedback, and keep every AI suggestion in your control.</p>
         {(error || authError) && <p role="alert" className="message error">{error || authError?.message}</p>}
         <button className="primary" onClick={signIn}>Sign in to continue</button>
+        <label htmlFor="signup-role">Account type</label>
+        <select id="signup-role" value={signUpRole} onChange={(event) => setSignUpRole(event.target.value as SignUpRole)}>
+          {signUpRoles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+        </select>
         <button onClick={signUp}>Create an account</button>
         <p className="small-note">Secure sign-in is provided by Auth0.</p>
       </main>

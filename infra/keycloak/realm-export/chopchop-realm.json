@@ -8,8 +8,27 @@
     "realm": [
       {
         "name": "review-moderator",
-        "description": "May approve, reject, or hide community reviews"
-      }
+        "description": "May approve, reject, or hide community reviews",
+        "composite": true,
+        "composites": { "realm": ["reviews.moderate"] }
+      },
+      {
+        "name": "admin",
+        "description": "Administrator: moderates reviews, reads or disables any user profile, and unpublishes or removes any recipe",
+        "composite": true,
+        "composites": { "realm": ["reviews.moderate", "users.admin", "recipes.admin"] }
+      },
+      {
+        "name": "pro-chef",
+        "description": "Pro Chef: may generate and confirm AI recipe drafts",
+        "composite": true,
+        "composites": { "realm": ["recipe-generations.create", "recipe-generations.confirm"] }
+      },
+      { "name": "reviews.moderate", "description": "Permission emitted in the permissions claim; grant through a role, not directly" },
+      { "name": "users.admin", "description": "Permission emitted in the permissions claim; grant through a role, not directly" },
+      { "name": "recipes.admin", "description": "Permission emitted in the permissions claim; grant through a role, not directly" },
+      { "name": "recipe-generations.create", "description": "Permission emitted in the permissions claim; grant through a role, not directly" },
+      { "name": "recipe-generations.confirm", "description": "Permission emitted in the permissions claim; grant through a role, not directly" }
     ]
   },
   "clients": [
@@ -77,6 +96,20 @@
             "id.token.claim": "false",
             "access.token.claim": "true",
             "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "Realm roles as permissions",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "permissions",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
           }
         }
       ]

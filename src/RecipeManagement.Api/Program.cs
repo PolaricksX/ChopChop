@@ -51,7 +51,9 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.RecipesWrite, policy =>
         policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.RecipesWrite)))
     .AddPolicy(Policies.RecipesPublish, policy =>
-        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.RecipesPublish)));
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.RecipesPublish)))
+    .AddPolicy(Policies.RecipesAdmin, policy =>
+        policy.RequireAuthenticatedUser().RequireAssertion(context => ScopeClaims.CanUse(context.User, Policies.RecipesAdmin)));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 
@@ -120,6 +122,15 @@ recipes.MapGet("", async (HttpRequest request, RecipeApplicationService service,
         pageSize);
     return Results.Ok(await service.SearchAsync(criteria, ct));
 }).AllowAnonymous();
+
+app.MapPost("/api/v1/admin/recipes/{recipeId:guid}/unpublish", async (Guid recipeId, ICurrentUser user, RecipeApplicationService service, CancellationToken ct) =>
+{
+    await service.UnpublishAsAdminAsync(user.UserId, recipeId, ct); return Results.NoContent();
+}).RequireAuthorization(Policies.RecipesAdmin);
+app.MapDelete("/api/v1/admin/recipes/{recipeId:guid}", async (Guid recipeId, ICurrentUser user, RecipeApplicationService service, CancellationToken ct) =>
+{
+    await service.RemoveAsAdminAsync(user.UserId, recipeId, ct); return Results.NoContent();
+}).RequireAuthorization(Policies.RecipesAdmin);
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.Run();
