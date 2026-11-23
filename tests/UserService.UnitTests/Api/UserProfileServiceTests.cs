@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using UserService.Api.Contracts;
 using UserService.Api.Services;
@@ -26,8 +27,7 @@ public class UserProfileServiceTests
         service = CreateService(new FakeImageIntegrityChecker());
     }
 
-    private UserProfileService CreateService(FakeImageIntegrityChecker checker) =>
-        new(unitOfWork, storage, checker, new FixedTimeProvider(Now), NullLogger<UserProfileService>.Instance);
+    private UserProfileService CreateService(FakeImageIntegrityChecker checker, IUnitOfWork? uow = null, ILogger<UserProfileService>? log = null) => new(uow ?? unitOfWork, storage, checker, new FixedTimeProvider(Now), log ?? NullLogger<UserProfileService>.Instance);
 
     private static byte[] Png(int size = 64)
     {
@@ -269,5 +269,53 @@ public class UserProfileServiceTests
         await Assert.ThrowsAsync<UserNotFoundException>(() =>
             service.ReplaceProfilePictureAsync("sub-2", profile.Id, Upload(Png(), "image/png"), CancellationToken.None));
         Assert.Empty(storage.Saved);
+    }
+
+    [Fact]
+    public async Task ReplacePicture_when_saving_fails_deletes_the_new_file_and_keeps_the_old_one()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+        await service.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(Png(), "image/png"), CancellationToken.None);
+        var oldKey = factory.Users.Items.Single().ProfilePictureKey!;
+        var failing = CreateService(new FakeImageIntegrityChecker(), new FailingUnitOfWork(unitOfWork, new ConflictException("Simulated save failure.")));
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            failing.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(Png(), "image/png"), CancellationToken.None));
+
+        var deleted = Assert.Single(storage.Deleted);
+        Assert.NotEqual(oldKey, deleted);
+        Assert.Equal(oldKey, Assert.Single(storage.Saved).Key);
+    }
+
+    [Fact]
+    public async Task ReplacePicture_when_deleting_the_old_file_fails_still_succeeds_and_logs_a_warning()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+        await service.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(Png(), "image/png"), CancellationToken.None);
+        var oldKey = factory.Users.Items.Single().ProfilePictureKey!;
+        storage.FailDeletes = true;
+        var logger = new RecordingLogger<UserProfileService>();
+        var logging = CreateService(new FakeImageIntegrityChecker(), log: logger);
+
+        await logging.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(Png(), "image/png"), CancellationToken.None);
+
+        Assert.NotEqual(oldKey, factory.Users.Items.Single().ProfilePictureKey);
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task ReplacePicture_rejected_upload_keeps_the_existing_picture()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+        await service.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(Png(), "image/png"), CancellationToken.None);
+        var oldKey = factory.Users.Items.Single().ProfilePictureKey;
+        var rejecting = CreateService(new FakeImageIntegrityChecker(isValid: false));
+
+        await Assert.ThrowsAsync<ProfilePictureBadRequestException>(() =>
+            rejecting.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(Png(), "image/png"), CancellationToken.None));
+
+        Assert.Equal(oldKey, factory.Users.Items.Single().ProfilePictureKey);
+        Assert.Single(storage.Saved);
+        Assert.Empty(storage.Deleted);
     }
 }
