@@ -91,6 +91,22 @@ default role. Grant `reviews.moderate`, `users.admin`, `recipes.admin`, and the
 generation create/confirm permissions only through the roles above, and never
 as a scope the browser client requests on its own.
 
+### Sign-up role choice
+
+The sign-up form offers **User** or **Pro Chef** (never Admin). The client sends
+the choice as the `requested_role` authorize parameter. The Post-Login Action
+[`infra/auth0/actions/assign-signup-role.js`](../infra/auth0/actions/assign-signup-role.js)
+checks it on the first login (`logins_count === 1`) and assigns the matching role
+through the Management API. Only the allowlist in that file decides which choices
+are honored; change the rules there. Role IDs and the Management API client
+secrets live in Action secrets (`PRO_CHEF_ROLE_ID`, `domain`, `clientId`,
+`clientSecret`). The Management API client needs `update:users` and `read:roles`
+and is never given to the browser client. Verify in a tenant that
+`event.request.query` contains `requested_role` before relying on it.
+
+The Pro Chef sign-up option is open to anyone until the criteria change, so
+generation access is not yet gated by a real eligibility check.
+
 The APIs use RS256 and the Auth0 tenant as their issuer/authority. Do not use
 the Auth0 Management API audience or grant Management API permissions to the
 browser client.

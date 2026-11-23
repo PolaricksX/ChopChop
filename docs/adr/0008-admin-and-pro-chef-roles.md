@@ -37,6 +37,8 @@ that the APIs already read from `scope`, `scp`, or `permissions`.
 - AI generation becomes Pro Chef only (existing behavior change); reading a
   generation (`recipe-generations.read`) stays open to users.
 - Granting a role in the identity provider is the only way to obtain these
-  scopes. Never add `users.admin`, `recipes.admin`, or `reviews.moderate` as a
-  client scope that a user can request on their own.
+  scopes, apart from the sign-up choice of Pro Chef: the Auth0 Post-Login Action
+  in `infra/auth0/actions/assign-signup-role.js` assigns it on first login. Never
+  add `users.admin`, `recipes.admin`, or `reviews.moderate` as a client scope that
+  a user can request on their own. Admin is never self-selected.
 - Admin unpublish is reversible by the recipe owner; admin removal is not.
