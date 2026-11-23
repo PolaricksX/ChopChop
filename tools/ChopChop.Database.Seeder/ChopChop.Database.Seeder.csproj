@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AiRecipeGeneration.Data\AiRecipeGeneration.Data.csproj" />
+    <ProjectReference Include="..\..\src\InteractiveReview.Data\InteractiveReview.Data.csproj" />
+    <ProjectReference Include="..\..\src\RecipeManagement.Data\RecipeManagement.Data.csproj" />
+    <ProjectReference Include="..\..\src\Cookbook.Data\Cookbook.Data.csproj" />
+    <ProjectReference Include="..\..\src\Equipment.Data\Equipment.Data.csproj" />
+    <ProjectReference Include="..\..\src\Pantry.Data\Pantry.Data.csproj" />
+    <ProjectReference Include="..\..\src\MealPlanner.Data\MealPlanner.Data.csproj" />
+    <ProjectReference Include="..\..\src\UserService.Data\UserService.Data.csproj" />
+  </ItemGroup>
+</Project>

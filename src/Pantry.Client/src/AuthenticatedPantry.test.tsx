@@ -44,6 +44,7 @@ describe("AuthenticatedPantry", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("VITE_DEV_AUTH", "false");
     auth.client = null;
     window.history.replaceState(null, "", "/");
     auth.getUser.mockResolvedValue(null);
@@ -57,6 +58,7 @@ describe("AuthenticatedPantry", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 
@@ -65,6 +67,20 @@ describe("AuthenticatedPantry", () => {
     expect(container.textContent).toContain("Sign in to manage your pantry");
     await act(async () => container.querySelector("button")?.click());
     expect(auth.signinRedirect).toHaveBeenCalledOnce();
+  });
+
+  it("opens the pantry without OIDC when local development auth is enabled", async () => {
+    vi.stubEnv("VITE_DEV_AUTH", "true");
+    const fetcher = vi.fn().mockResolvedValue(new Response("[]", { status: 200 }));
+    vi.stubGlobal("fetch", fetcher);
+
+    await act(async () => root.render(<AuthenticatedPantry />));
+
+    expect(container.textContent).toContain("Development mode is enabled.");
+    expect(container.textContent).toContain("Pantry content");
+    expect(auth.getUser).not.toHaveBeenCalled();
+    await auth.client?.list();
+    expect(fetcher.mock.calls[0][1].headers.get("Authorization")).toBe("Bearer development-mode");
   });
 
   it("processes the callback and displays the authenticated app", async () => {

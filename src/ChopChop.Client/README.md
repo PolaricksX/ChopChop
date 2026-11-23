@@ -19,8 +19,10 @@ code flow and PKCE. It is a public SPA and must not have a client secret.
 4. Run `npm ci`, then `npm run dev`.
 
 The client supports recipe generation/status/confirmation, review submission
-and reading, a moderator queue, cookbook management, meal planning, and
-equipment management. Photos are intentionally unavailable.
+and reading, a moderator queue, cookbook management, meal planning, the user
+pantry, and user equipment. Pantry and Equipment use the shared authenticated
+site with separate API audiences and least-privilege delegated scopes. Photos
+are intentionally unavailable.
 
 The client uses cached access tokens or refresh tokens for each API. When an
 API token requires interactive Auth0 authorization, the client offers an

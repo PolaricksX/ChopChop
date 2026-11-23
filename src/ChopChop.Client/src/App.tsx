@@ -11,15 +11,19 @@ import {
   moderateReview,
 } from './api'
 import type { Generation, Review } from './api'
-import { getApiAccessToken, getTokenOrReauthenticate, setTokenGetter } from './auth'
-import type { TokenOptions } from './auth'
+import {
+  getApiAccessToken,
+  getTokenOrReauthenticate,
+  isDevelopmentAuthEnabled,
+  setTokenGetter,
+} from './auth'
+import type { PantryPermission, TokenOptions } from './auth'
 import './App.css'
 import { RecipeDetails } from './recipes/RecipeDetails'
 import { RecipeDrafts } from './recipes/RecipeDrafts'
 import { RecipeEditor } from './recipes/RecipeEditor'
 import { RecipeList } from './recipes/RecipeList'
 import { CookbookTab } from './cookbook/CookbookTab'
-import { EquipmentTab } from './equipment/EquipmentTab'
 import type { EquipmentPermission } from './equipment/api'
 import type { MealPlannerPermission } from './meal-planning/api'
 import { clearRedirectNavigation, getRedirectNavigation } from './redirectNavigation'
@@ -30,10 +34,20 @@ const MealPlannerDashboard = lazy(() =>
     default: MealPlannerDashboard,
   })),
 )
+const EquipmentTab = lazy(() =>
+  import('./equipment/EquipmentTab').then(({ EquipmentTab }) => ({
+    default: EquipmentTab,
+  })),
+)
+const PantryTab = lazy(() =>
+  import('./pantry/PantryTab').then(({ PantryTab }) => ({
+    default: PantryTab,
+  })),
+)
 
 function App() {
   const { isLoading } = useAuth0()
-  if (isLoading) {
+  if (isLoading && !isDevelopmentAuthEnabled()) {
     return <main className="shell"><p role="status">Loading your secure session…</p></main>
   }
   return <AppContent />
@@ -43,15 +57,21 @@ function AppContent() {
   const {
     error: authError,
     getAccessTokenSilently,
+    isAuthenticated: isAuth0Authenticated,
     getAccessTokenWithPopup,
-    isAuthenticated,
     loginWithRedirect,
     logout,
     user,
   } = useAuth0()
+  const developmentAuthEnabled = isDevelopmentAuthEnabled()
+  const isAuthenticated = developmentAuthEnabled || isAuth0Authenticated
   const getMealPlannerAccessToken = useCallback(
     (permission: MealPlannerPermission, forceRefresh = false) =>
       getApiAccessToken('mealPlanner', permission, forceRefresh),
+    [],
+  )
+  const getPantryAccessToken = useCallback(
+    (permission: PantryPermission) => getApiAccessToken('pantry', permission),
     [],
   )
   const getEquipmentAccessToken = useCallback(
@@ -152,7 +172,16 @@ function AppContent() {
   const signIn = async () => {
     setError('')
     try {
-      await loginWithRedirect()
+      await loginWithRedirect({ authorizationParams: { scope: 'cookbook.read' } })
+    } catch (loginError) {
+      setError(errorMessage(loginError))
+    }
+  }
+
+  const signUp = async () => {
+    setError('')
+    try {
+      await loginWithRedirect({ authorizationParams: { scope: 'cookbook.read', screen_hint: 'signup' } })
     } catch (loginError) {
       setError(errorMessage(loginError))
     }
@@ -271,6 +300,7 @@ function AppContent() {
         <p className="lede">Create a recipe draft, share thoughtful feedback, and keep every AI suggestion in your control.</p>
         {(error || authError) && <p role="alert" className="message error">{error || authError?.message}</p>}
         <button className="primary" onClick={signIn}>Sign in to continue</button>
+        <button onClick={signUp}>Create an account</button>
         <p className="small-note">Secure sign-in is provided by Auth0.</p>
       </main>
     )
@@ -281,8 +311,10 @@ function AppContent() {
       <header className="topbar">
         <a className="brand" href="/">chop<span>chop</span></a>
         <div className="account">
-          <span>{user?.name ?? user?.nickname ?? 'Signed in'}</span>
-          <button className="quiet" onClick={signOut}>Sign out</button>
+          <span>{developmentAuthEnabled ? 'Development user' : user?.name ?? user?.nickname ?? 'Signed in'}</span>
+          {developmentAuthEnabled
+            ? <span className="quiet">Development mode</span>
+            : <button className="quiet" onClick={signOut}>Sign out</button>}
         </div>
       </header>
 
@@ -297,6 +329,7 @@ function AppContent() {
         <button className={activePanel === 'recipes' ? 'tab active' : 'tab'} onClick={() => { setActivePanel('recipes'); setRecipeView('browse'); setSelectedRecipeId(null) }}>Recipes</button>
         <button className={activePanel === 'cookbook' ? 'tab active' : 'tab'} onClick={() => setActivePanel('cookbook')}>Cookbook</button>
         <button className={activePanel === 'meal-planner' ? 'tab active' : 'tab'} onClick={() => setActivePanel('meal-planner')}>Meal Plans</button>
+        <button className={activePanel === 'pantry' ? 'tab active' : 'tab'} onClick={() => setActivePanel('pantry')}>My Pantry</button>
         <button className={activePanel === 'equipment' ? 'tab active' : 'tab'} onClick={() => setActivePanel('equipment')}>Equipment</button>
         <button className={activePanel === 'review' ? 'tab active' : 'tab'} onClick={() => setActivePanel('review')}>Reviews</button>
         <button className={activePanel === 'moderation' ? 'tab active' : 'tab'} onClick={() => setActivePanel('moderation')}>Moderation</button>
@@ -336,13 +369,21 @@ function AppContent() {
       )}
 
       {activePanel === 'cookbook' && <CookbookTab />}
+      {activePanel === 'pantry' && (
+        <Suspense fallback={<p role="status">Loading your pantry…</p>}>
+          <PantryTab getAccessToken={getPantryAccessToken} />
+        </Suspense>
+      )}
+      {activePanel === 'equipment' && (
+        <Suspense fallback={<p role="status">Loading equipment…</p>}>
+          <EquipmentTab getAccessToken={getEquipmentAccessToken} />
+        </Suspense>
+      )}
       {activePanel === 'meal-planner' && (
         <Suspense fallback={<p role="status">Loading meal planning…</p>}>
           <MealPlannerDashboard getAccessToken={getMealPlannerAccessToken} />
         </Suspense>
       )}
-      {activePanel === 'equipment' && <EquipmentTab getAccessToken={getEquipmentAccessToken} />}
-
       {activePanel === 'recipe' && (
         <section className="panel" aria-labelledby="recipe-heading">
           <div className="panel-heading">
