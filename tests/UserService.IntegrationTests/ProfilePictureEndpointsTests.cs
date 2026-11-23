@@ -68,6 +68,12 @@ public class ProfilePictureEndpointsTests(ApiFactory factory) : IClassFixture<Ap
             .SingleAsync();
     }
 
+    private async Task<HttpResponseMessage> GetProfilePictureAsync(string token, Guid id)
+    {
+        using var request = factory.Request(HttpMethod.Get, $"{Users}/{id}/profile-picture", token);
+        return await client.SendAsync(request);
+    }
+
     private static byte[] OfSize(byte[] header, int size)
     {
         var bytes = new byte[size];
@@ -107,6 +113,86 @@ public class ProfilePictureEndpointsTests(ApiFactory factory) : IClassFixture<Ap
 
         Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
         Assert.NotEqual(firstKey, await StoredPictureKeyAsync(id));
+    }
+
+    [Fact]
+    public async Task Get_after_uploading_png_returns_200_with_identical_bytes_and_png_content_type()
+    {
+        var (token, id) = await CreateUserAsync();
+        using var upload = await UploadAsync(token, id, Png, "image/png");
+
+        using var response = await GetProfilePictureAsync(token, id);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(Png, bytes);
+    }
+
+    [Fact]
+    public async Task Get_after_uploading_jpeg_returns_200_with_identical_bytes_and_jpeg_content_type()
+    {
+        var (token, id) = await CreateUserAsync();
+        using var upload = await UploadAsync(token, id, Jpeg, "image/jpeg");
+
+        using var response = await GetProfilePictureAsync(token, id);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(Jpeg, bytes);
+    }
+
+    [Fact]
+    public async Task Get_after_replacing_picture_returns_the_new_bytes()
+    {
+        var (token, id) = await CreateUserAsync();
+        using var firstUpload = await UploadAsync(token, id, Png, "image/png");
+        using var secondUpload = await UploadAsync(token, id, Jpeg, "image/jpeg");
+
+        using var response = await GetProfilePictureAsync(token, id);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(Jpeg, bytes);
+    }
+
+    [Fact]
+    public async Task Another_user_getting_profile_picture_is_404()
+    {
+        var (ownerToken, ownerId) = await CreateUserAsync();
+        using var upload = await UploadAsync(ownerToken, ownerId, Png, "image/png");
+        var (otherToken, _) = await CreateUserAsync();
+
+        using var response = await GetProfilePictureAsync(otherToken, ownerId);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Profile_without_a_picture_returns_404()
+    {
+        var (token, id) = await CreateUserAsync();
+
+        using var response = await GetProfilePictureAsync(token, id);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_profile_picture_sets_private_no_store_and_nosniff_headers()
+    {
+        var (token, id) = await CreateUserAsync();
+        using var upload = await UploadAsync(token, id, Png, "image/png");
+
+        using var response = await GetProfilePictureAsync(token, id);
+        var cacheControl = response.Headers.CacheControl?.ToString() ?? string.Empty;
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("private", cacheControl, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no-store", cacheControl, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
     }
 
     [Fact]

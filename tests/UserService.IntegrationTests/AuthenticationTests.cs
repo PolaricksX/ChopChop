@@ -58,12 +58,15 @@ public class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task Token_in_query_string_is_not_accepted()
     {
         var token = factory.Jwt.Create("s1");
+        var id = Guid.NewGuid();
 
-        using var byId = await client.GetAsync($"{Users}/{Guid.NewGuid()}?access_token={token}");
+        using var byId = await client.GetAsync($"{Users}/{id}?access_token={token}");
         using var me = await client.GetAsync($"{Users}/me?access_token={token}");
+        using var profilePicture = await client.GetAsync($"{Users}/{id}/profile-picture?access_token={token}");
 
         Assert.Equal(HttpStatusCode.Unauthorized, byId.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, profilePicture.StatusCode);
     }
 
     [Fact]
@@ -85,6 +88,7 @@ public class AuthenticationTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("POST", "/api/v1/users", "users.write")]
     [InlineData("GET", "/api/v1/users/{id}", "users.read")]
     [InlineData("GET", "/api/v1/users/me", "users.read")]
+    [InlineData("GET", "/api/v1/users/{id}/profile-picture", "users.read")]
     [InlineData("PUT", "/api/v1/users/{id}", "users.write")]
     [InlineData("DELETE", "/api/v1/users/{id}", "users.write")]
     [InlineData("PUT", "/api/v1/users/{id}/profile-picture", "users.write")]

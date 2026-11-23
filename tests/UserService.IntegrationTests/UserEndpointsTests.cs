@@ -175,6 +175,18 @@ public class UserEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Get_me_keeps_the_default_cache_control_header()
+    {
+        var caller = NewCaller();
+        await CreateUserAsync(caller);
+
+        using var response = await SendAsync(caller, HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public async Task Get_of_another_users_profile_or_unknown_id_is_404()
     {
         var owner = await CreateUserAsync(NewCaller());

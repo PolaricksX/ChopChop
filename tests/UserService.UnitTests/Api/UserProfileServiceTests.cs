@@ -27,7 +27,16 @@ public class UserProfileServiceTests
         service = CreateService(new FakeImageIntegrityChecker());
     }
 
-    private UserProfileService CreateService(FakeImageIntegrityChecker checker, IUnitOfWork? uow = null, ILogger<UserProfileService>? log = null) => new(uow ?? unitOfWork, storage, checker, new FixedTimeProvider(Now), log ?? NullLogger<UserProfileService>.Instance);
+    private UserProfileService CreateService(
+        FakeImageIntegrityChecker checker,
+        IUnitOfWork? uow = null,
+        ILogger<UserProfileService>? log = null) =>
+        new(
+            uow ?? unitOfWork,
+            storage,
+            checker,
+            new FixedTimeProvider(Now),
+            log ?? NullLogger<UserProfileService>.Instance);
 
     private static byte[] Png(int size = 64)
     {
@@ -344,5 +353,58 @@ public class UserProfileServiceTests
         Assert.Equal(oldKey, factory.Users.Items.Single().ProfilePictureKey);
         Assert.Single(storage.Saved);
         Assert.Empty(storage.Deleted);
+    }
+
+    [Fact]
+    public async Task GetProfilePicture_returns_stored_bytes_and_content_type_for_the_owner()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+        var expectedBytes = Png();
+        await service.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(expectedBytes, "image/png"), CancellationToken.None);
+
+        var result = await service.GetProfilePictureAsync("sub-1", profile.Id, CancellationToken.None);
+        using var stream = result.Stream;
+        using var copied = new MemoryStream();
+        await result.Stream.CopyToAsync(copied, CancellationToken.None);
+
+        Assert.Equal("image/png", result.ContentType);
+        Assert.Equal(expectedBytes, copied.ToArray());
+    }
+
+    [Fact]
+    public async Task GetProfilePicture_for_another_users_profile_is_not_found()
+    {
+        var ownerService = CreateService(new FakeImageIntegrityChecker());
+        var profile = await ownerService.CreateAsync("owner", "key-1", Request(), CancellationToken.None);
+        await ownerService.ReplaceProfilePictureAsync("owner", profile.Id, Upload(Png(), "image/png"), CancellationToken.None);
+        await Assert.ThrowsAsync<UserNotFoundException>(() =>
+            ownerService.GetProfilePictureAsync("other-user", profile.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetProfilePicture_when_profile_has_no_picture_is_not_found()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+
+        await Assert.ThrowsAsync<UserNotFoundException>(() =>
+            service.GetProfilePictureAsync("sub-1", profile.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetProfilePicture_when_stored_file_is_missing_is_not_found_and_logs_warning()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+        await service.ReplaceProfilePictureAsync("sub-1", profile.Id, Upload(Png(), "image/png"), CancellationToken.None);
+        var key = factory.Users.Items.Single().ProfilePictureKey!;
+        storage.Saved.Remove(key);
+
+        var logger = new RecordingLogger<UserProfileService>();
+        var loggingService = CreateService(new FakeImageIntegrityChecker(), log: logger);
+
+        await Assert.ThrowsAsync<UserNotFoundException>(() =>
+            loggingService.GetProfilePictureAsync("sub-1", profile.Id, CancellationToken.None));
+        var warning = Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        Assert.Contains(profile.Id.ToString(), warning.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(key, warning.Message, StringComparison.Ordinal);
     }
 }
