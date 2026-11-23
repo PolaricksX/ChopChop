@@ -30,6 +30,15 @@ public static class UserEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapGet("/me", GetCurrentAsync)
+            .RequireAuthorization(Policies.UsersRead)
+            .WithName("GetCurrentUser")
+            .WithSummary("Gets the caller's profile. Requires the users.read scope; returns 404 when no profile exists.")
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapPut("/{id:guid}", UpdateAsync)
             .RequireAuthorization(Policies.UsersWrite)
             .WithName("UpdateUser")
@@ -90,6 +99,9 @@ public static class UserEndpoints
 
     private static async Task<IResult> GetAsync(Guid id, ICurrentUser user, UserProfileService users, CancellationToken token) =>
         Results.Ok((await users.GetAsync(user.Id, id, token)).ToResponse());
+
+    private static async Task<IResult> GetCurrentAsync(ICurrentUser user, UserProfileService users, CancellationToken token) =>
+        Results.Ok((await users.GetCurrentAsync(user.Id, token)).ToResponse());
 
     private static async Task<IResult> UpdateAsync(
         Guid id,

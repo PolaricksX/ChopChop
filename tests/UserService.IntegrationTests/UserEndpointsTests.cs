@@ -190,6 +190,54 @@ public class UserEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Get_me_returns_the_callers_profile()
+    {
+        var caller = NewCaller();
+        var created = await CreateUserAsync(caller);
+
+        using var response = await SendAsync(caller, HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(created, await response.Content.ReadFromJsonAsync<UserResponse>());
+    }
+
+    [Fact]
+    public async Task Get_me_returns_404_when_the_caller_has_no_profile()
+    {
+        using var response = await SendAsync(NewCaller(), HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_me_never_returns_another_users_profile()
+    {
+        var ownerCaller = NewCaller();
+        var otherCaller = NewCaller();
+        var owner = await CreateUserAsync(ownerCaller);
+        var other = await CreateUserAsync(otherCaller);
+
+        using var response = await SendAsync(otherCaller, HttpMethod.Get, $"{Users}/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var returned = (await response.Content.ReadFromJsonAsync<UserResponse>())!;
+        Assert.Equal(other.Id, returned.Id);
+        Assert.NotEqual(owner.Id, returned.Id);
+    }
+
+    [Fact]
+    public async Task Get_me_is_handled_by_the_me_endpoint_not_the_id_endpoint()
+    {
+        var caller = NewCaller();
+        var created = await CreateUserAsync(caller);
+
+        using var response = await SendAsync(caller, HttpMethod.Get, "/api/v1/users/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(created.Id, (await response.Content.ReadFromJsonAsync<UserResponse>())!.Id);
+    }
+
+    [Fact]
     public async Task Put_updates_the_profile_and_issues_a_new_version()
     {
         var caller = NewCaller();

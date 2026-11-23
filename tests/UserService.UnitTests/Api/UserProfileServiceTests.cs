@@ -121,6 +121,33 @@ public class UserProfileServiceTests
     }
 
     [Fact]
+    public async Task GetCurrent_returns_own_profile()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+
+        var current = await service.GetCurrentAsync("sub-1", CancellationToken.None);
+
+        Assert.Equal(profile.Id, current.Id);
+    }
+
+    [Fact]
+    public async Task GetCurrent_without_a_profile_is_not_found()
+    {
+        await Assert.ThrowsAsync<UserNotFoundException>(() =>
+            service.GetCurrentAsync("sub-1", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetCurrent_after_soft_delete_is_not_found()
+    {
+        var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);
+        await service.DeleteAsync("sub-1", profile.Id, CancellationToken.None);
+
+        await Assert.ThrowsAsync<UserNotFoundException>(() =>
+            service.GetCurrentAsync("sub-1", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Update_changes_own_profile()
     {
         var profile = await service.CreateAsync("sub-1", "key-1", Request(), CancellationToken.None);

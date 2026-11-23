@@ -62,6 +62,17 @@ public sealed class UserProfileService(
         await unitOfWork.CustomRepository<IUserProfileRepository>().GetOwnedAsync(id, subject, forUpdate: false, token)
         ?? throw new UserNotFoundException();
 
+    public async Task<UserProfile> GetCurrentAsync(string subject, CancellationToken token)
+    {
+        var profile = await unitOfWork.CustomRepository<IUserProfileRepository>().GetBySubjectAsync(subject, token);
+        if (profile is null || profile.IsDeleted)
+        {
+            throw new UserNotFoundException();
+        }
+
+        return profile;
+    }
+
     public async Task<UserProfile> UpdateAsync(string subject, Guid id, UpdateUserRequest request, CancellationToken token)
     {
         var users = unitOfWork.CustomRepository<IUserProfileRepository>();
